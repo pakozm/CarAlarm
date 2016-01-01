@@ -24,7 +24,12 @@
 
 /*
   Change Log:
+  v0.2 2016/01/02 Added readVcc() routine.
   v0.1 2016/01/01 First draft: buzzer, PIR and accelerometer.
+*/
+
+/*
+  TODO: add interrupt-based controller for PIR sensor
 */
 
 const byte VERSION = 01; // firmware version divided by 10 e,g 16 = V1.6
@@ -50,6 +55,8 @@ const int ACC_Z_PIN = 2;
 // accelerometer threshold
 const float ACC_TH = 10.0f;
 
+long Vcc; // in mili-volts
+
 ///////////////////////////////////////////////////////////////////////////
 
 class AlarmSensor {
@@ -59,6 +66,8 @@ public:
   virtual void setup()=0;
   // checks if sensor is active or not
   virtual bool checkActivity()=0;
+  //
+  virtual const char * const getName()=0;
 };
 
 class PIRSensor : public AlarmSensor {
@@ -71,6 +80,7 @@ public:
     int val = digitalRead(pin);
     return (val == HIGH);
   }
+  virtual const char * const getName() { return "PIR"; }
 private:
   int pin, count;
 };
@@ -93,6 +103,7 @@ class AccelerometerSensor : public AlarmSensor {
     float dx=x_val-x_ref, dy=y_val-y_ref, dz=z_val-z_ref;
     return (dx*dx + dy*dy + dz*dy) > threshold2;
   }
+  virtual const char * const getName() { return "ACC"; }
 private:
   int x_pin, y_pin, z_pin;
   int x_ref, y_ref, z_ref;
@@ -106,50 +117,49 @@ AccelerometerSensor acc_sensor(ACC_X_PIN, ACC_Y_PIN, ACC_Z_PIN, ACC_TH);
 
 AlarmSensor *sensors[NUM_SENSORS] = { &pir_sensor, &acc_sensor };
 
-void blink(unsigned long ms=100) {
+void blink(unsigned long ms=100, unsigned long post_ms=200) {
   digitalWrite(LED_PIN, HIGH); delay(ms);
-  digitalWrite(LED_PIN, LOW); delay(10);
+  digitalWrite(LED_PIN, LOW); delay(post_ms);
 }
 
-void buzz(unsigned long ms=100) {
+void buzz(unsigned long ms=100, unsigned long post_ms=200) {
   digitalWrite(BUZ_PIN, HIGH); delay(ms);
-  digitalWrite(BUZ_PIN, LOW); delay(10);
+  digitalWrite(BUZ_PIN, LOW); delay(post_ms);
 }
 
-void setup()
-{
-  pinMode(LED_PIN, OUTPUT);
-  pinMode(BUZ_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH);
+// from: http://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/
+long readVcc() {
+  // Read 1.1V reference against AVcc
+  // set the reference to Vcc and the measurement to the internal 1.1V reference
+#if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+  ADMUX = _BV(REFS0) | _BV(MUX4) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+#elif defined (__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
+  ADMUX = _BV(MUX5) | _BV(MUX0);
+#elif defined (__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+  ADMUX = _BV(MUX3) | _BV(MUX2);
+#else
+  ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+#endif  
 
-  // initialization message
-  Serial.begin(9600);
-  Serial.print("Car Alarm V");
-  Serial.println(VERSION*0.1);
-  Serial.println("Francisco Zamora-Martinez (2016)");
-  digitalWrite(LED_PIN, LOW);
+  delay(2); // Wait for Vref to settle
+  ADCSRA |= _BV(ADSC); // Start conversion
+  while (bit_is_set(ADCSRA,ADSC)); // measuring
 
-  // indicates correct function by buzzing 2 times
-  buzz();
-  buzz();
-    
-  // indicates correct function by blinking 10 times
-  for (int i=0; i<10; i++) blink();
+  uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH  
+  uint8_t high = ADCH; // unlocks both
 
-  Serial.println("ARMING.....wait 60s");
-  if (DEBUG) delay(DEBUG_ARMING_SLEEP);
-  else delay(RELEASE_ARMING_SLEEP);
+  long result = (high<<8) | low;
 
-  // initialize all installed sensors
-  for (int i=0; i<NUM_SENSORS; ++i) sensors[i]->setup();
-} // end SETUP
+  result = 1125300L / result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
+  return result; // Vcc in millivolts
+}
 
 void alarmOn() {
-  Serial.println("ALARM ON");
+  if (DEBUG) Serial.println("ALARM ON");
   digitalWrite(LED_PIN, HIGH);
   delay(4000);
   digitalWrite(LED_PIN, LOW);
-  Serial.println("ALARM OFF");
+  if (DEBUG) Serial.println("ALARM OFF");
 }
 
 unsigned long last_time = 0;
@@ -165,21 +175,75 @@ bool alarm_delayed() {
   return (alarm_delay > 0);
 }
 
-void loop()
-{
-  int i, activity_detected=0;
+///////////////////////////////////////////////////////////////////////////////
 
-  if (!alarm_delayed()) {
-    for (i=0; i<NUM_SENSORS; ++i) {
-      if (sensors[i]->checkActivity()) activity_detected = 1;
+void setup()
+{
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(BUZ_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
+
+  // initialization message
+  Serial.begin(9600);
+  Serial.print("Car Alarm V");
+  Serial.println(VERSION*0.1);
+  Serial.println("Francisco Zamora-Martinez (2016)");
+  digitalWrite(LED_PIN, LOW);
+
+  Vcc = readVcc();
+
+  if (Vcc < VCC_THRESHOLD) {
+    digitalWrite(LED_PIN, HIGH);
+    for (int i=0; i<10; ++i) {
+      buzz(100, 0);
     }
-    if (activity_detected) {
-      alarmOn();
-      if (!DEBUG) alarm_delay = RELEASE_REARM_DELAY;
-      else alarm_delay = DEBUG_REARM_DELAY;
-    }
+    digitalWrite(LED_PIN, LOW);
+    return;
   }
   
-  if (millis() % BLINK_DELAY == 0) blink();
-  delay(PERIOD_SLEEP);
+  // indicates correct function by buzzing 2 times
+  buzz();
+  buzz();
+    
+  // indicates correct function by blinking 10 times
+  for (int i=0; i<10; i++) blink();
+
+  Serial.println("ARMING.....wait 60s");
+  if (DEBUG) delay(DEBUG_ARMING_SLEEP);
+  else delay(RELEASE_ARMING_SLEEP);
+
+  // initialize all installed sensors
+  for (int i=0; i<NUM_SENSORS; ++i) sensors[i]->setup();
+} // end SETUP
+
+void loop()
+{
+  if (Vcc < VCC_THRESHOLD) {
+    buzz();
+    delay(10000);
+    break;
+  }
+  else {
+    int i, activity_detected=0;
+
+    if (!alarm_delayed()) {
+      for (i=0; i<NUM_SENSORS; ++i) {
+        if (sensors[i]->checkActivity()) {
+          if (DEBUG) {
+            Serial.print("Activity at sensor: ");
+            Serial.println(sensors[i]->getName());
+          }
+          activity_detected = 1;
+        }
+      }
+      if (activity_detected) {
+        alarmOn();
+        if (!DEBUG) alarm_delay = RELEASE_REARM_DELAY;
+        else alarm_delay = DEBUG_REARM_DELAY;
+      }
+    }
+  
+    if (millis() % BLINK_DELAY == 0) blink(100, 0);
+    delay(PERIOD_SLEEP);
+  }
 }
