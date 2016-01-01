@@ -27,8 +27,14 @@
   v0.1 2016/01/01 First draft: buzzer, PIR and accelerometer.
 */
 
-const byte version = 01; // firmware version divided by 10 e,g 16 = V1.6
-const unsigned long SLEEP_TIME = 10000; // 10 seconds
+const byte VERSION = 01; // firmware version divided by 10 e,g 16 = V1.6
+const bool DEBUG = true;
+const int DEBUG_ARMING_SLEEP = 1000; // 1 s
+const int RELEASE_ARMING_SLEEP = 60000; // 60 s
+const unsigned long PERIOD_SLEEP = 100; // 100 ms
+const unsigned long BLINK_DELAY = 10000; // 10 s
+const unsigned long RELEASE_REARM_DELAY = 60000; // 60 s
+const unsigned long DEBUG_REARM_DELAY = 4000; // 4 s
 const int NUM_SENSORS = 2;
 
 // digital pins connection
@@ -119,7 +125,7 @@ void setup()
   // initialization message
   Serial.begin(9600);
   Serial.print("Car Alarm V");
-  Serial.println(version*0.1);
+  Serial.println(VERSION*0.1);
   Serial.println("Francisco Zamora-Martinez (2016)");
   digitalWrite(LED_PIN, LOW);
 
@@ -131,30 +137,49 @@ void setup()
   for (int i=0; i<10; i++) blink();
 
   Serial.println("ARMING.....wait 60s");
-  delay(4000);
+  if (DEBUG) delay(DEBUG_ARMING_SLEEP);
+  else delay(RELEASE_ARMING_SLEEP);
 
   // initialize all installed sensors
   for (int i=0; i<NUM_SENSORS; ++i) sensors[i]->setup();
-  
-
-  
-} //end SETUP
+} // end SETUP
 
 void alarmOn() {
+  Serial.println("ALARM ON");
   digitalWrite(LED_PIN, HIGH);
-  delay(2000);
+  delay(4000);
   digitalWrite(LED_PIN, LOW);
+  Serial.println("ALARM OFF");
+}
+
+unsigned long last_time = 0;
+unsigned long alarm_delay = 0;
+
+bool alarm_delayed() {
+  if (alarm_delay > 0) {
+    unsigned long time_delta = millis() - last_time;
+    if (time_delta < alarm_delay) alarm_delay -= time_delta;
+    else alarm_delay = 0;
+  }
+  last_time = millis();
+  return (alarm_delay > 0);
 }
 
 void loop()
 {
   int i, activity_detected=0;
-  blink();
-  
-  for (i=0; i<NUM_SENSORS; ++i) {
-    if (sensors[i]->checkActivity()) activity_detected = 1;
+
+  if (!alarm_delayed()) {
+    for (i=0; i<NUM_SENSORS; ++i) {
+      if (sensors[i]->checkActivity()) activity_detected = 1;
+    }
+    if (activity_detected) {
+      alarmOn();
+      if (!DEBUG) alarm_delay = RELEASE_REARM_DELAY;
+      else alarm_delay = DEBUG_REARM_DELAY;
+    }
   }
-  if (activity_detected) alarmOn();
   
-  delay(SLEEP_TIME);
+  if (millis() % BLINK_DELAY == 0) blink();
+  delay(PERIOD_SLEEP);
 }
