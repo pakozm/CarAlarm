@@ -29,9 +29,9 @@
 
 const byte VERSION = 01; // firmware version divided by 10 e,g 16 = V1.6
 const bool DEBUG = true;
+const unsigned long PERIOD_SLEEP = 10; // 10 ms
 const int DEBUG_ARMING_SLEEP = 1000; // 1 s
 const int RELEASE_ARMING_SLEEP = 60000; // 60 s
-const unsigned long PERIOD_SLEEP = 100; // 100 ms
 const unsigned long BLINK_DELAY = 10000; // 10 s
 const unsigned long RELEASE_REARM_DELAY = 60000; // 60 s
 const unsigned long DEBUG_REARM_DELAY = 4000; // 4 s
@@ -106,14 +106,14 @@ AccelerometerSensor acc_sensor(ACC_X_PIN, ACC_Y_PIN, ACC_Z_PIN, ACC_TH);
 
 AlarmSensor *sensors[NUM_SENSORS] = { &pir_sensor, &acc_sensor };
 
-void blink() {
-  digitalWrite(LED_PIN, HIGH); delay(200);
-  digitalWrite(LED_PIN, LOW); delay(300);
+void blink(unsigned long ms=100) {
+  digitalWrite(LED_PIN, HIGH); delay(ms);
+  digitalWrite(LED_PIN, LOW); delay(10);
 }
 
-void buzz(unsigned long ms) {
+void buzz(unsigned long ms=100) {
   digitalWrite(BUZ_PIN, HIGH); delay(ms);
-  digitalWrite(BUZ_PIN, LOW); delay(300);
+  digitalWrite(BUZ_PIN, LOW); delay(10);
 }
 
 void setup()
@@ -130,8 +130,8 @@ void setup()
   digitalWrite(LED_PIN, LOW);
 
   // indicates correct function by buzzing 2 times
-  buzz(200);
-  buzz(200);
+  buzz();
+  buzz();
     
   // indicates correct function by blinking 10 times
   for (int i=0; i<10; i++) blink();
