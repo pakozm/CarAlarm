@@ -23,7 +23,35 @@
  */
 
 /*
+  Summary:
+  
+  This alarm uses different sensors to detect activity inside the car. When any
+  of them sense activity, the alarm will start making noise for a particular
+  duration.
+  
+  The alarm has START_DELAY which allow the user to put it on and leave the car.
+  Once this delay passes, the alarm executes a routine every PERIOD_SLEEP
+  looking for activity in the sensors. When activity is sensed, a delay of
+  ALARM_DELAY is used to allow manual disconnection of the alarm. After this
+  time the alarm starts making noise during ALARM_DURATION time. After this
+  time the alarm waits REARM_DELAY before rearming alarm sensors.
+
+  
+  Starting procedure: depending on alarm battery level the starting procedure
+  changes, indicating if everything is ok to work, if the battery needs to be
+  replaced/charged, or if battery is so low that the system won't run:
+  
+  1. Correct function is advertised by BATTERY_OK_REPETITIONS short buzzes.
+  
+  2. Low battery is advertised by BATTERY_ALERT_REPETITIONS long buzzes, but the
+     alarm stills running.
+
+  3. Very low battery is advertised by BATTERY_ERROR_REPETITIONS short buzzes
+  and the system won't run.
+  
+  
   Change Log:
+  v0.3 2016/01/02 Added battery level indications at start.
   v0.2 2016/01/02 Added readVcc() routine.
   v0.1 2016/01/01 First draft: buzzer, PIR and accelerometer.
 */
@@ -32,14 +60,32 @@
   TODO: add interrupt-based controller for PIR sensor
 */
 
+#define DEBUG
+
 const byte VERSION = 01; // firmware version divided by 10 e,g 16 = V1.6
-const bool DEBUG = true;
-const unsigned long PERIOD_SLEEP = 10; // 10 ms
-const int DEBUG_ARMING_SLEEP = 1000; // 1 s
-const int RELEASE_ARMING_SLEEP = 60000; // 60 s
-const unsigned long BLINK_DELAY = 10000; // 10 s
-const unsigned long RELEASE_REARM_DELAY = 60000; // 60 s
-const unsigned long DEBUG_REARM_DELAY = 4000; // 4 s
+// WARNING: should be PERIOD_SLEEP >= 100
+const unsigned long PERIOD_SLEEP =   100; // 100 ms
+const unsigned long BLINK_DELAY  = 10000; // 10 s
+
+#ifdef DEBUG
+const unsigned long START_SLEEP    =  1000; // 1 s
+const unsigned long REARM_DELAY    =  4000; // 4 s
+const unsigned long ALARM_DELAY    =  1000; // 1 s
+const unsigned long ALARM_DURATION = 6000; // 6 seconds
+#else
+const unsigned long START_SLEEP    = 60000; // 60 s
+const unsigned long REARM_DELAY    = 60000; // 60 s
+const unsigned long ALARM_DELAY    = 10000; // 10 s
+const unsigned long ALARM_DURATION = 60000; // 60 seconds
+#endif
+
+const int BATTERY_OK_REPETITIONS    = 2;
+const int BATTERY_ALERT_REPETITIONS = 3;
+const int BATTERY_ERROR_REPETITIONS = 10;
+
+const long VCC_ALERT = 4000; // mili-volts
+const long VCC_ERROR = 3000; // mili-volts
+
 const int NUM_SENSORS = 2;
 
 // digital pins connection
@@ -155,11 +201,21 @@ long readVcc() {
 }
 
 void alarmOn() {
-  if (DEBUG) Serial.println("ALARM ON");
-  digitalWrite(LED_PIN, HIGH);
-  delay(4000);
-  digitalWrite(LED_PIN, LOW);
-  if (DEBUG) Serial.println("ALARM OFF");
+#ifdef DEBUG
+  Serial.print("ALARM ON: delaying ");
+  Serial.print(ALARM_DELAY/1000.0);
+  Serial.println("s");
+#endif
+  delay(ALARM_DELAY);
+  unsigned long t0 = millis();
+  while(millis() - t0 < ALARM_DURATION) {
+    digitalWrite(LED_PIN, HIGH);
+    buzz(1000, 1000);
+    digitalWrite(LED_PIN, LOW);
+  }
+#ifdef DEBUG
+  Serial.println("ALARM OFF");
+#endif
 }
 
 unsigned long last_time = 0;
@@ -173,6 +229,24 @@ bool alarm_delayed() {
   }
   last_time = millis();
   return (alarm_delay > 0);
+}
+
+bool check_failure_Vcc() {
+  if (Vcc < VCC_ERROR) {
+    digitalWrite(LED_PIN, HIGH);
+    for (int i=0; i<BATTERY_ERROR_REPETITIONS; ++i) {
+      buzz();
+    }
+    digitalWrite(LED_PIN, LOW);
+    return true;
+  }
+  else {
+    for (int i=0; i<BATTERY_ALERT_REPETITIONS; ++i) {
+      blink(100, 0);
+      buzz(1000, 0);
+    }
+    return false;
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -191,35 +265,29 @@ void setup()
   digitalWrite(LED_PIN, LOW);
 
   Vcc = readVcc();
-
-  if (Vcc < VCC_THRESHOLD) {
-    digitalWrite(LED_PIN, HIGH);
-    for (int i=0; i<10; ++i) {
-      buzz(100, 0);
-    }
-    digitalWrite(LED_PIN, LOW);
-    return;
+  
+  if (check_failure_Vcc()) return;
+  
+  // indicates correct function by buzzing and blinking
+  for (int i=0; i<BATTERY_OK_REPETITIONS; ++i) {
+    blink(100, 0);
+    buzz(100, 0);
   }
   
-  // indicates correct function by buzzing 2 times
-  buzz();
-  buzz();
-    
-  // indicates correct function by blinking 10 times
-  for (int i=0; i<10; i++) blink();
-
-  Serial.println("ARMING.....wait 60s");
-  if (DEBUG) delay(DEBUG_ARMING_SLEEP);
-  else delay(RELEASE_ARMING_SLEEP);
+  Serial.print("START.....wait ");
+  Serial.print(START_SLEEP/1000.0);
+  Serial.println("s");
+  delay(START_SLEEP);
 
   // initialize all installed sensors
-  for (int i=0; i<NUM_SENSORS; ++i) sensors[i]->setup();
+  for (int i=0; i<NUM_SENSORS; ++i) {
+    sensors[i]->setup();
+  }
 } // end SETUP
 
 void loop()
 {
   if (Vcc < VCC_THRESHOLD) {
-    buzz();
     delay(10000);
     break;
   }
@@ -229,21 +297,26 @@ void loop()
     if (!alarm_delayed()) {
       for (i=0; i<NUM_SENSORS; ++i) {
         if (sensors[i]->checkActivity()) {
-          if (DEBUG) {
-            Serial.print("Activity at sensor: ");
-            Serial.println(sensors[i]->getName());
-          }
+#ifdef DEBUG
+          Serial.print("Activity at sensor: ");
+          Serial.println(sensors[i]->getName());
+#endif
           activity_detected = 1;
         }
       }
       if (activity_detected) {
         alarmOn();
-        if (!DEBUG) alarm_delay = RELEASE_REARM_DELAY;
-        else alarm_delay = DEBUG_REARM_DELAY;
+        alarm_delay = REARM_DELAY;
       }
     }
-  
-    if (millis() % BLINK_DELAY == 0) blink(100, 0);
-    delay(PERIOD_SLEEP);
+    
+    if (millis() % BLINK_DELAY == 0) {
+      // WARNING: should be PERIOD_SLEEP >= 100
+      blink(100, 0);
+      delay(PERIOD_SLEEP - 100);
+    }
+    else {
+      delay(PERIOD_SLEEP);
+    }
   }
 }
