@@ -47,7 +47,7 @@
      alarm stills running.
 
   3. Very low battery is advertised by BATTERY_ERROR_REPETITIONS short buzzes
-  and the system won't run.
+     and the system won't run.
   
   
   Change Log:
