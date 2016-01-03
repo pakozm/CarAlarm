@@ -1,5 +1,5 @@
 /*
- * This file is part of CarAlarm an Arduino sketch for a car alarm system.
+ * This file is part of CarAlarm an Arduino project for a car alarm system.
 
  * Copyright (c) 2016 Francisco Zamora-Martinez (pakozm@gmail.com)
  *
@@ -62,7 +62,7 @@
 
 #define DEBUG
 
-const byte VERSION = 01; // firmware version divided by 10 e,g 16 = V1.6
+const byte VERSION = 03; // firmware version divided by 10 e,g 16 = V1.6
 // WARNING: should be PERIOD_SLEEP >= 100
 const unsigned long PERIOD_SLEEP =   100; // 100 ms
 const unsigned long BLINK_DELAY  = 10000; // 10 s
@@ -259,7 +259,7 @@ void setup()
 
   // initialization message
   Serial.begin(9600);
-  Serial.print("Car Alarm V");
+  Serial.print("CarAlarmContinuousReading V");
   Serial.println(VERSION*0.1);
   Serial.println("Francisco Zamora-Martinez (2016)");
   digitalWrite(LED_PIN, LOW);
