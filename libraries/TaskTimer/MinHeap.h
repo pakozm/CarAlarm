@@ -67,8 +67,9 @@ template<typename T, int MAX, typename KEYFN, typename K>
 void MinHeap<T,MAX,KEYFN,K>::push(const T &obj) {
   int k = ++sz;
   K key_obj = keyfn(obj);
-  while(key_obj < keyfn(heap[parent(k)])) {
+  while(k>1 && key_obj < keyfn(heap[parent(k)])) {
     swap(heap[k],heap[parent(k)]);
+    k = parent(k);
   }
   heap[k] = obj;
 }
@@ -83,7 +84,10 @@ void MinHeap<T,MAX,KEYFN,K>::heapify(int p) {
     int min = p;
     if (l <= sz && keyfn(heap[l]) < key_obj) min = l;
     if (r <= sz && keyfn(heap[r]) < keyfn(heap[min])) min = r;
-    if (min != p) swap(heap[p], heap[min]);
+    if (min != p) {
+      swap(heap[p], heap[min]);
+      p = min;
+    }
     else break;
   }
 }
