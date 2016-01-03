@@ -68,7 +68,7 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
 
 #define DEBUG
 
-const byte VERSION = 03; // firmware version divided by 10 e,g 16 = V1.6
+const byte VERSION = 04; // firmware version divided by 10 e,g 16 = V1.6
 // WARNING: should be PERIOD_SLEEP >= 100
 const unsigned long PERIOD_SLEEP =   100; // 100 ms
 const unsigned long BLINK_DELAY  = 10000; // 10 s
