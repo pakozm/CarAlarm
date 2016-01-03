@@ -1,0 +1,3 @@
+[submodule "libraries/analogComp"]
+	path = libraries/analogComp
+	url = https://github.com/leomil72/analogComp.git
