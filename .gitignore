@@ -5,6 +5,9 @@ gmon.out
 *.o
 *.so
 *.hex
+test_heap
+test_stack
+test_task_timer
 
 # Emacs backups #
 #################

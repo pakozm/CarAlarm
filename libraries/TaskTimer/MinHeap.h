@@ -27,7 +27,7 @@
 template<typename T, int MAX, typename KEYFN, typename KEY>
 class MinHeap {
 public:
-  MinHeap(const KEYFN &keyfn);
+  MinHeap(const KEYFN &keyfn = KEYFN());
   T top() const;
   void pop();
   void push(const T &id);

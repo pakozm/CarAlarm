@@ -122,7 +122,7 @@ template<char MAX>
 id_type TaskTimer<MAX>::timer(time_type ms, func_type func) {
   id_type id = ids_stack.top();
   ids_stack.pop();
-  task_t task = tasks[id];
+  task_t &task = tasks[id];
   task.when = millis() + ms;
   task.func = func;
   tasks_heap.push(id);
