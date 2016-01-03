@@ -240,13 +240,13 @@ bool check_failure_Vcc() {
     digitalWrite(LED_PIN, LOW);
     return true;
   }
-  else {
+  else if (Vcc < VCC_ALERT) {
     for (int i=0; i<BATTERY_ALERT_REPETITIONS; ++i) {
       blink(100, 0);
       buzz(1000, 0);
     }
-    return false;
   }
+  return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -287,9 +287,9 @@ void setup()
 
 void loop()
 {
-  if (Vcc < VCC_THRESHOLD) {
-    delay(10000);
-    break;
+  if (Vcc < VCC_ERROR) {
+    delay(1000000);
+    return;
   }
   else {
     int i, activity_detected=0;
