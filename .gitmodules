@@ -1,3 +1,6 @@
 [submodule "libraries/analogComp"]
 	path = libraries/analogComp
 	url = https://github.com/leomil72/analogComp.git
+[submodule "libraries/Low-Power"]
+	path = libraries/LowPower
+	url = https://github.com/rocketscream/Low-Power.git
