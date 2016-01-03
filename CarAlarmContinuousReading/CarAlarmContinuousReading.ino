@@ -1,6 +1,6 @@
 /*
  * This file is part of CarAlarm an Arduino project for a car alarm system.
-
+ *
  * Copyright (c) 2016 Francisco Zamora-Martinez (pakozm@gmail.com)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,7 +22,7 @@
  * IN THE SOFTWARE.
  */
 
-/*
+/*******************************************************************************
   Summary:
   
   This alarm uses different sensors to detect activity inside the car. When any
@@ -51,14 +51,20 @@
   
   
   Change Log:
+  v0.4 2016/01/03 Using a timer scheduler.
   v0.3 2016/01/02 Added battery level indications at start.
   v0.2 2016/01/02 Added readVcc() routine.
   v0.1 2016/01/01 First draft: buzzer, PIR and accelerometer.
-*/
+*******************************************************************************/
 
 /*
   TODO: add interrupt-based controller for PIR sensor
 */
+
+#include <JeeLib.h>
+ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
+
+#include <TaskTimer.h>
 
 #define DEBUG
 
@@ -71,7 +77,7 @@ const unsigned long BLINK_DELAY  = 10000; // 10 s
 const unsigned long START_SLEEP    =  1000; // 1 s
 const unsigned long REARM_DELAY    =  4000; // 4 s
 const unsigned long ALARM_DELAY    =  1000; // 1 s
-const unsigned long ALARM_DURATION = 6000; // 6 seconds
+const unsigned long ALARM_DURATION =  6000; // 6 seconds
 #else
 const unsigned long START_SLEEP    = 60000; // 60 s
 const unsigned long REARM_DELAY    = 60000; // 60 s
@@ -87,6 +93,7 @@ const long VCC_ALERT = 4000; // mili-volts
 const long VCC_ERROR = 3000; // mili-volts
 
 const int NUM_SENSORS = 2;
+const int MAX_TASKS = 4; // maximum number of tasks for Scheduler
 
 // digital pins connection
 const int PIR_PIN = 2;
@@ -102,40 +109,42 @@ const int ACC_Z_PIN = 2;
 const float ACC_TH = 10.0f;
 
 long Vcc; // in mili-volts
+TaskTimer<MAX_TASKS> scheduler;
+id_type blink_task, alarm_task;
 
 ///////////////////////////////////////////////////////////////////////////
 
 class AlarmSensor {
 public:
-  virtual ~AlarmSensor() {}
-  // initializes the sensor (probably calibrating its rest values)
-  virtual void setup()=0;
-  // checks if sensor is active or not
-  virtual bool checkActivity()=0;
-  //
-  virtual const char * const getName()=0;
+virtual ~AlarmSensor() {}
+// initializes the sensor (probably calibrating its rest values)
+virtual void setup()=0;
+// checks if sensor is active or not
+virtual bool checkActivity()=0;
+//
+virtual const char * const getName()=0;
 };
 
 class PIRSensor : public AlarmSensor {
 public:
-  PIRSensor(int pin) : pin(pin) { };
-  virtual void setup() {
-    pinMode(pin, INPUT);
-  }
-  virtual bool checkActivity() {
-    int val = digitalRead(pin);
-    return (val == HIGH);
-  }
-  virtual const char * const getName() { return "PIR"; }
+PIRSensor(int pin) : pin(pin) { };
+virtual void setup() {
+pinMode(pin, INPUT);
+}
+virtual bool checkActivity() {
+int val = digitalRead(pin);
+return (val == HIGH);
+}
+virtual const char * const getName() { return "PIR"; }
 private:
-  int pin, count;
+int pin, count;
 };
 
 class AccelerometerSensor : public AlarmSensor {
-  public:
-  AccelerometerSensor(int x_pin, int y_pin, int z_pin, float threshold) :
-    x_pin(x_pin), y_pin(y_pin), z_pin(z_pin),
-    threshold2(threshold*threshold) { };
+public:
+AccelerometerSensor(int x_pin, int y_pin, int z_pin, float threshold) :
+  x_pin(x_pin), y_pin(y_pin), z_pin(z_pin),
+  threshold2(threshold*threshold) { };
   virtual void setup() {
     x_ref = analogRead(x_pin);
     y_ref = analogRead(y_pin);
@@ -163,14 +172,37 @@ AccelerometerSensor acc_sensor(ACC_X_PIN, ACC_Y_PIN, ACC_Z_PIN, ACC_TH);
 
 AlarmSensor *sensors[NUM_SENSORS] = { &pir_sensor, &acc_sensor };
 
+void led_on() {
+  digitalWrite(LED_PIN, HIGH);
+}
+
+void led_off() {
+  digitalWrite(LED_PIN, LOW);
+}
+
+void buzzer_on() {
+  digitalWrite(BUZ_PIN, HIGH);
+}
+
+void buzzer_off() {
+  digitalWrite(BUZ_PIN, LOW);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
 void blink(unsigned long ms=100, unsigned long post_ms=200) {
-  digitalWrite(LED_PIN, HIGH); delay(ms);
-  digitalWrite(LED_PIN, LOW); delay(post_ms);
+  led_on(); sleep(ms);
+  led_off(); sleep(post_ms);
 }
 
 void buzz(unsigned long ms=100, unsigned long post_ms=200) {
-  digitalWrite(BUZ_PIN, HIGH); delay(ms);
-  digitalWrite(BUZ_PIN, LOW); delay(post_ms);
+  buzzer_on(); sleep(ms);
+  buzzer_off(); sleep(post_ms);
+}
+
+void blink_and_repeat() {
+  blink();
+  scheduler.timer(BLINK_DELAY, blink_and_repeat);
 }
 
 // from: http://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/
@@ -187,7 +219,7 @@ long readVcc() {
   ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
 #endif  
 
-  delay(2); // Wait for Vref to settle
+  sleep(2); // Wait for Vref to settle
   ADCSRA |= _BV(ADSC); // Start conversion
   while (bit_is_set(ADCSRA,ADSC)); // measuring
 
@@ -206,29 +238,20 @@ void alarmOn() {
   Serial.print(ALARM_DELAY/1000.0);
   Serial.println("s");
 #endif
-  delay(ALARM_DELAY);
+  scheduler.cancel(blink_task);
+
+  sleep(ALARM_DELAY);
   unsigned long t0 = millis();
   while(millis() - t0 < ALARM_DURATION) {
-    digitalWrite(LED_PIN, HIGH);
+    led_on();
     buzz(1000, 1000);
-    digitalWrite(LED_PIN, LOW);
+    led_off();
   }
+  
+  blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
 #ifdef DEBUG
   Serial.println("ALARM OFF");
 #endif
-}
-
-unsigned long last_time = 0;
-unsigned long alarm_delay = 0;
-
-bool alarm_delayed() {
-  if (alarm_delay > 0) {
-    unsigned long time_delta = millis() - last_time;
-    if (time_delta < alarm_delay) alarm_delay -= time_delta;
-    else alarm_delay = 0;
-  }
-  last_time = millis();
-  return (alarm_delay > 0);
 }
 
 bool check_failure_Vcc() {
@@ -277,46 +300,52 @@ void setup()
   Serial.print("START.....wait ");
   Serial.print(START_SLEEP/1000.0);
   Serial.println("s");
-  delay(START_SLEEP);
+  sleep(START_SLEEP);
 
   // initialize all installed sensors
   for (int i=0; i<NUM_SENSORS; ++i) {
     sensors[i]->setup();
   }
+
+  // schedule all required tasks
+  blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
+  alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
+  
 } // end SETUP
 
-void loop()
+void alarm_check()
 {
-  if (Vcc < VCC_ERROR) {
-    delay(1000000);
-    return;
+  int i, activity_detected=0;
+
+  for (i=0; i<NUM_SENSORS; ++i) {
+    if (sensors[i]->checkActivity()) {
+#ifdef DEBUG
+      Serial.print("Activity at sensor: ");
+      Serial.println(sensors[i]->getName());
+#endif
+      activity_detected = 1;
+    }
+  }
+  if (activity_detected) {
+    alarmOn();
+    alarm_task = scheduler.timer(REARM_DELAY, alarm_check);
   }
   else {
-    int i, activity_detected=0;
+    alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
+  }
+}
 
-    if (!alarm_delayed()) {
-      for (i=0; i<NUM_SENSORS; ++i) {
-        if (sensors[i]->checkActivity()) {
+void loop() {
+  if (Vcc < VCC_ERROR) {
 #ifdef DEBUG
-          Serial.print("Activity at sensor: ");
-          Serial.println(sensors[i]->getName());
+    Serial.println("VCC_ERROR");
 #endif
-          activity_detected = 1;
-        }
-      }
-      if (activity_detected) {
-        alarmOn();
-        alarm_delay = REARM_DELAY;
-      }
-    }
-    
-    if (millis() % BLINK_DELAY == 0) {
-      // WARNING: should be PERIOD_SLEEP >= 100
-      blink(100, 0);
-      delay(PERIOD_SLEEP - 100);
-    }
-    else {
-      delay(PERIOD_SLEEP);
-    }
+    sleep(100000);
+  }
+  else if (scheduler.pollWaiting() == ALL_IDLE) {
+#ifdef DEBUG
+    Serial.println("ALL_IDLE");
+#endif
+    sleep(100000);
   }
 }
