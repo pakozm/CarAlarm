@@ -21,22 +21,39 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-#ifndef ALARM_SENSOR_H
-#define ALARM_SENSOR_H
-class AlarmSensor {
+#ifndef TEMPERATURE_SENSOR_H
+#define TEMPERATURE_SENSOR_H
+#include "Arduino.h"
+#include "AlarmSensor.h"
+
+class TemperatureSensor : public AlarmSensor {
 public:
-  virtual ~AlarmSensor() {}
-  // initializes the sensor (probably calibrating its rest values)
-  virtual void setup()=0;
-  // checks if sensor is active or not
-  virtual bool checkActivity()=0;
-  //
-  virtual const char * const getName()=0;
-  //
-  static float convertToMv(int value) {
-    return value * MV_SCALE;
+  TemperatureSensor(int pin) : pin(pin) { };
+  virtual void setup() {
+    pinMode(pin, INPUT);
+    temp_ref = readTemperature();
+  }
+  virtual bool checkActivity() {
+    float val      = readTemperature();
+    float abs_diff = fabsf(temp_ref - val);
+#ifdef DEBUG
+    Serial.print("Temp: ref= ");
+    Serial.println(temp_ref);
+    Serial.print("      cur= ");
+    Serial.println(val);
+#endif
+    temp_ref = ALPHA*temp_ref + (1-ALPHA)*val;
+    return abs_diff > EPSILON;
+  }
+  virtual const char * const getName() { return "Temp"; }
+  float readTemperature() const {
+    return convertToMv(analogRead(pin))*100.0f - 50.0f;
   }
 private:
-  static const float MV_SCALE = 5000.0f / 1023.0f;
+  int pin;
+  float temp_ref;
+  static const float ALPHA = 0.9;
+  static const float EPSILON = 0.5;
 };
-#endif // ALARM_SENSOR_H
+
+#endif // TEMPERATURE_SENSOR_H

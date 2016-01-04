@@ -63,8 +63,9 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
 
 #define DEBUG
 #include "AlarmSensor.h"
-#include "PIRSensor.h"
 #include "AccelerometerSensor.h"
+#include "PIRSensor.h"
+#include "TemperatureSensor.h"
 
 const byte VERSION = 04; // firmware version divided by 10 e,g 16 = V1.6
 // WARNING: should be PERIOD_SLEEP >= 100
@@ -95,18 +96,19 @@ const int BATTERY_ERROR_DURATION    = 100; // 100 ms
 const long VCC_ALERT = 4000; // mili-volts
 const long VCC_ERROR = 3000; // mili-volts
 
-const int NUM_SENSORS = 2;
+const int NUM_SENSORS = 3;
 const int MAX_TASKS = 4; // maximum number of tasks for Scheduler
 
 // digital pins connection
-const int PIR_PIN = 2;
-const int LED_PIN = 13;
 const int BUZ_PIN = 12;
+const int LED_PIN = 13;
+const int PIR_PIN = 2;
 
 // analogic pins connection
 const int ACC_X_PIN = 0;
 const int ACC_Y_PIN = 1;
 const int ACC_Z_PIN = 2;
+const int TEMP_PIN  = 5;
 
 // accelerometer threshold
 const float ACC_TH = 10.0f;
@@ -117,10 +119,11 @@ id_type blink_task, alarm_task;
 
 ///////////////////////////////////////////////////////////////////////////
 
-PIRSensor pir_sensor(PIR_PIN);
 AccelerometerSensor acc_sensor(ACC_X_PIN, ACC_Y_PIN, ACC_Z_PIN, ACC_TH);
+PIRSensor pir_sensor(PIR_PIN);
+TemperatureSensor temp_sensor(TEMP_PIN);
 
-AlarmSensor *sensors[NUM_SENSORS] = { &pir_sensor, &acc_sensor };
+AlarmSensor *sensors[NUM_SENSORS] = { &pir_sensor, &acc_sensor, &temp_sensor };
 
 void led_on() {
   digitalWrite(LED_PIN, HIGH);

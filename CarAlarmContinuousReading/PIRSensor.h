@@ -28,17 +28,24 @@
 
 class PIRSensor : public AlarmSensor {
 public:
-  PIRSensor(int pin) : pin(pin) { };
+  PIRSensor(int pin) : pin(pin), count(0) { };
   virtual void setup() {
     pinMode(pin, INPUT);
   }
   virtual bool checkActivity() {
     int val = digitalRead(pin);
-    return (val == HIGH);
+    if (val == HIGH) ++count;
+    else count = 0;
+#ifdef DEBUG
+    Serial.print("PIR: count= ");
+    Serial.println(count);
+#endif
+    return (count >= PRESENCE_COUNT);
   }
   virtual const char * const getName() { return "PIR"; }
 private:
   int pin, count;
+  static const int PRESENCE_COUNT=2;
 };
 
 #endif // PIR_SENSOR_H

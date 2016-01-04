@@ -55,9 +55,9 @@ public:
     squareRoot(s_refs);
     
 #ifdef DEBUG
-    Serial.print("Reference: mu=    ");
+    Serial.print("ACC Reference: mu=    ");
     println(m_refs);
-    Serial.print("           sigma= ");
+    Serial.print("               sigma= ");
     println(s_refs);
 #endif
 
@@ -78,7 +78,7 @@ public:
     }
 #ifdef DEBUG
     if (activity) {
-      Serial.print("ACC vec= ");
+      Serial.print("ACC: vec= ");
       println(vec);
     }
 #endif
@@ -87,19 +87,33 @@ public:
     float s = sum(vec);
 #ifdef DEBUG
     if (s > threshold2) {
-      Serial.print("ACC sum= ");
+      Serial.print("     sum= ");
       Serial.println(s);
     }
 #endif
     return s > threshold2 || activity;
   }
   virtual const char * const getName() { return "ACC"; }
+  float readAccX() const {
+    return convertToG(convertToMv(analogRead(pins[0])));
+  }
+  float readAccY() const {
+    return convertToG(convertToMv(analogRead(pins[1])));
+  }
+  float readAccZ() const {
+    return convertToG(convertToMv(analogRead(pins[2])));
+  }
 private:
   int pins[3];
   float m_refs[3], s_refs[3], low_refs[3], high_refs[3];
   float threshold2;
   static const int SETUP_NUM_SAMPLES=30;
   static const unsigned long SETUP_SAMPLE_DELAY=50;
+  static const float SCALE = 6.0f/3300.0f;
+  
+  static float convertToG(float mv) {
+    return mv*SCALE - 3.0f;
+  }
 
   template<typename T>
   void print(const T *vec) {
