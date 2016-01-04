@@ -29,15 +29,15 @@
   of them sense activity, the alarm will start making noise for a particular
   duration.
   
-  The alarm has START_DELAY which allow the user to put it on and leave the car.
-  Once this delay passes, the alarm executes a routine every PERIOD_SLEEP
-  looking for activity in the sensors. When activity is sensed, a delay of
-  ALARM_DELAY is used to allow manual disconnection of the alarm. After this
-  time the alarm starts making noise during ALARM_DURATION time. After this
-  time the alarm waits REARM_DELAY before rearming alarm sensors.
+  The alarm has a START_DELAY time which allow the user to arm the alarm and
+  leave the car. Once this delay passes, the alarm executes a routine every
+  PERIOD_SLEEP looking for activity in the sensors. When activity is sensed, a
+  delay of ALARM_DELAY is used to allow manual disconnection of the alarm. After
+  this time the alarm starts making noise during ALARM_DURATION time. After this
+  time the alarm waits REARM_DELAY before rearming alarm again.
 
   
-  Starting procedure: depending on alarm battery level the starting procedure
+  Setup procedure: depending on alarm battery level the starting procedure
   changes, indicating if everything is ok to work, if the battery needs to be
   replaced/charged, or if battery is so low that the system won't run:
   
@@ -56,10 +56,6 @@
   v0.2 2016/01/02 Added readVcc() routine.
   v0.1 2016/01/01 First draft: buzzer, PIR and accelerometer.
 *******************************************************************************/
-
-/*
-  TODO: add interrupt-based controller for PIR sensor
-*/
 
 #include <JeeLib.h>
 ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
