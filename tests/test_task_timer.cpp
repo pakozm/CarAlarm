@@ -1,7 +1,10 @@
 #include <iostream>
 #include <cassert>
 #include <cstdlib>
+extern "C" {
+#include <unistd.h>
 #include <sys/time.h>
+}
 #include "TaskTimer.h"
 
 using namespace std;
@@ -43,7 +46,7 @@ void task3() {
 int main() {
   const int MAX_COUNT=10;
   int count=0;
-  task1_id= scheduler.timer(TASK1_SLEEP, task1);
+  task1_id = scheduler.timer(TASK1_SLEEP, task1);
   task2_id = scheduler.timer(TASK2_SLEEP, task2);
   task3_id = scheduler.timer(TASK3_SLEEP, task3);
   while(scheduler.pollWaiting() != ALL_IDLE && count<MAX_COUNT) {
