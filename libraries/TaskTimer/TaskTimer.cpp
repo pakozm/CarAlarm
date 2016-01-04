@@ -31,7 +31,7 @@ void sleep(time_type ms) {
     if (ms < 100) delay(ms);
     else Sleepy::loseSomeTime(ms);
 #else
-#error "Please, include JeeLib.h in your sketch source code."
+#warning "Please, include JeeLib.h in your sketch source code."
     delay(ms);
 #endif
   }
