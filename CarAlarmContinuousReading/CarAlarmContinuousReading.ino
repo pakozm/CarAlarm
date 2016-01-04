@@ -150,11 +150,6 @@ void buzz(unsigned long ms=100, unsigned long post_ms=200) {
   buzzer_off(); sleep(post_ms);
 }
 
-void blink_and_repeat() {
-  blink();
-  scheduler.timer(BLINK_DELAY, blink_and_repeat);
-}
-
 // from: http://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/
 long readVcc() {
   // Read 1.1V reference against AVcc
@@ -229,6 +224,33 @@ bool check_failure_Vcc() {
   return false;
 }
 
+void blink_and_repeat() {
+  blink();
+  blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
+}
+
+void alarm_check()
+{
+  int i, activity_detected=0;
+
+  for (i=0; i<NUM_SENSORS; ++i) {
+    if (sensors[i]->checkActivity()) {
+#ifdef DEBUG
+      Serial.print("Activity at sensor: ");
+      Serial.println(sensors[i]->getName());
+#endif
+      activity_detected = 1;
+    }
+  }
+  if (activity_detected) {
+    alarmOn();
+    alarm_task = scheduler.timer(REARM_DELAY, alarm_check);
+  }
+  else {
+    alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
+  }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 void setup()
@@ -263,28 +285,6 @@ void setup()
   alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
   
 } // end SETUP
-
-void alarm_check()
-{
-  int i, activity_detected=0;
-
-  for (i=0; i<NUM_SENSORS; ++i) {
-    if (sensors[i]->checkActivity()) {
-#ifdef DEBUG
-      Serial.print("Activity at sensor: ");
-      Serial.println(sensors[i]->getName());
-#endif
-      activity_detected = 1;
-    }
-  }
-  if (activity_detected) {
-    alarmOn();
-    alarm_task = scheduler.timer(REARM_DELAY, alarm_check);
-  }
-  else {
-    alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
-  }
-}
 
 void loop() {
   if (Vcc < VCC_ERROR) {
