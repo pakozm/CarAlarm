@@ -63,31 +63,38 @@
 
 #include <JeeLib.h>
 ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
-
 #include <TaskTimer.h>
 
 #define DEBUG
+#include "AlarmSensor.h"
+#include "PIRSensor.h"
+#include "AccelerometerSensor.h"
 
 const byte VERSION = 04; // firmware version divided by 10 e,g 16 = V1.6
 // WARNING: should be PERIOD_SLEEP >= 100
 const unsigned long PERIOD_SLEEP =   100; // 100 ms
-const unsigned long BLINK_DELAY  = 10000; // 10 s
+const unsigned long BLINK_DELAY  = 10000; // 10 seconds
 
 #ifdef DEBUG
-const unsigned long START_SLEEP    =  1000; // 1 s
-const unsigned long REARM_DELAY    =  4000; // 4 s
-const unsigned long ALARM_DELAY    =  1000; // 1 s
+const unsigned long START_SLEEP    =  1000; // 1 seconds
+const unsigned long REARM_DELAY    =  4000; // 4 seconds
+const unsigned long ALARM_DELAY    =  1000; // 1 seconds
 const unsigned long ALARM_DURATION =  6000; // 6 seconds
 #else
-const unsigned long START_SLEEP    = 60000; // 60 s
-const unsigned long REARM_DELAY    = 60000; // 60 s
-const unsigned long ALARM_DELAY    = 10000; // 10 s
+const unsigned long START_SLEEP    = 60000; // 60 seconds
+const unsigned long REARM_DELAY    = 60000; // 60 seconds
+const unsigned long ALARM_DELAY    = 10000; // 10 seconds
 const unsigned long ALARM_DURATION = 60000; // 60 seconds
 #endif
 
 const int BATTERY_OK_REPETITIONS    = 2;
+const int BATTERY_OK_DURATION       = 100; // 100 ms
+
 const int BATTERY_ALERT_REPETITIONS = 3;
+const int BATTERY_ALERT_DURATION    = 1000; // 1 second
+
 const int BATTERY_ERROR_REPETITIONS = 10;
+const int BATTERY_ERROR_DURATION    = 100; // 100 ms
 
 const long VCC_ALERT = 4000; // mili-volts
 const long VCC_ERROR = 3000; // mili-volts
@@ -111,59 +118,6 @@ const float ACC_TH = 10.0f;
 long Vcc; // in mili-volts
 TaskTimer<MAX_TASKS> scheduler;
 id_type blink_task, alarm_task;
-
-///////////////////////////////////////////////////////////////////////////
-
-class AlarmSensor {
-public:
-virtual ~AlarmSensor() {}
-// initializes the sensor (probably calibrating its rest values)
-virtual void setup()=0;
-// checks if sensor is active or not
-virtual bool checkActivity()=0;
-//
-virtual const char * const getName()=0;
-};
-
-class PIRSensor : public AlarmSensor {
-public:
-PIRSensor(int pin) : pin(pin) { };
-virtual void setup() {
-pinMode(pin, INPUT);
-}
-virtual bool checkActivity() {
-int val = digitalRead(pin);
-return (val == HIGH);
-}
-virtual const char * const getName() { return "PIR"; }
-private:
-int pin, count;
-};
-
-class AccelerometerSensor : public AlarmSensor {
-public:
-AccelerometerSensor(int x_pin, int y_pin, int z_pin, float threshold) :
-  x_pin(x_pin), y_pin(y_pin), z_pin(z_pin),
-  threshold2(threshold*threshold) { };
-  virtual void setup() {
-    x_ref = analogRead(x_pin);
-    y_ref = analogRead(y_pin);
-    z_ref = analogRead(z_pin);
-  }
-  virtual bool checkActivity() {
-    int x_val, y_val, z_val;
-    x_val = analogRead(x_pin);
-    y_val = analogRead(y_pin);
-    z_val = analogRead(z_pin);
-    float dx=x_val-x_ref, dy=y_val-y_ref, dz=z_val-z_ref;
-    return (dx*dx + dy*dy + dz*dy) > threshold2;
-  }
-  virtual const char * const getName() { return "ACC"; }
-private:
-  int x_pin, y_pin, z_pin;
-  int x_ref, y_ref, z_ref;
-  float threshold2;
-};
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -258,7 +212,7 @@ bool check_failure_Vcc() {
   if (Vcc < VCC_ERROR) {
     digitalWrite(LED_PIN, HIGH);
     for (int i=0; i<BATTERY_ERROR_REPETITIONS; ++i) {
-      buzz();
+      buzz(BATTERY_ERROR_DURATION);
     }
     digitalWrite(LED_PIN, LOW);
     return true;
@@ -266,7 +220,14 @@ bool check_failure_Vcc() {
   else if (Vcc < VCC_ALERT) {
     for (int i=0; i<BATTERY_ALERT_REPETITIONS; ++i) {
       blink(100, 0);
-      buzz(1000, 0);
+      buzz(BATTERY_ALERT_DURATION, 0);
+    }
+  }
+  else {
+    // indicates correct function by buzzing and blinking
+    for (int i=0; i<BATTERY_OK_REPETITIONS; ++i) {
+      blink(100, 0);
+      buzz(BATTERY_OK_DURATION, 0);
     }
   }
   return false;
@@ -290,12 +251,6 @@ void setup()
   Vcc = readVcc();
   
   if (check_failure_Vcc()) return;
-  
-  // indicates correct function by buzzing and blinking
-  for (int i=0; i<BATTERY_OK_REPETITIONS; ++i) {
-    blink(100, 0);
-    buzz(100, 0);
-  }
   
   Serial.print("START.....wait ");
   Serial.print(START_SLEEP/1000.0);

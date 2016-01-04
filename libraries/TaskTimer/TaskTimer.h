@@ -28,54 +28,74 @@
 #include "MinHeap.h"
 #include "Stack.h"
 
-typedef unsigned long time_type;
-typedef int id_type;
-typedef void (*func_type)();
+typedef unsigned long time_type; ///< This type is for time data.
+typedef int id_type;             ///< Type for task identification.
+typedef void (*func_type)();     ///< Task function interface.
 
-const id_type WAIT_MORE=-1;
-const id_type ALL_IDLE=-2;
+const id_type WAIT_MORE=-1; ///< Indicates more time for polling a task.
+const id_type ALL_IDLE=-2;  ///< Indicates no jobs are pending.
 
+/**
+ * @brief This sleep function allow to use JeeLib or delay depending in the
+ * sleep time.
+ */
 void sleep(time_type ms);
 
-// Inspired by: http://jeelabs.org/pub/docs/jeelib/classScheduler.html
+/**
+ * @brief This class allow to schedule in time simple functions without
+ * arguments.
+ *
+ * @note Inspired by: http://jeelabs.org/pub/docs/jeelib/classScheduler.html
+ */ 
 template<char MAX=10>
 class TaskTimer {
 public:
   TaskTimer();
   
-  // Return next task to run, WAIT_MORE if there are none ready to run, but
-  // there are tasks waiting, or ALL_IDLE if there are no tasks waiting
+  /**
+   * @brief Return next task to run, WAIT_MORE if there are none ready to run, but
+   * there are tasks waiting, or ALL_IDLE if there are no tasks waiting
+   */
   id_type poll() const;
   
-  // Runs next available task, using Sleepy::loseSomeTime() for waiting and
-  // returns its identifier.
+  /**
+   * @brief Runs next available task, using Sleepy::loseSomeTime() for waiting and
+   * returns its identifier.
+   */
   id_type pollWaiting();
   
-  // set a task timer, in ms
+  /// Set a task timer, in ms.
   id_type timer(time_type ms, func_type func);
   
-  // cancel a task timer 
+  /// Cancel a task timer.
   void cancel(id_type id);
 
 private:
+  /// Traverses heap tasks until next one not canceled.
   void removeCanceledTasks();
-  
+
+  /// A task is defined by a time in millis type and a function.
   struct task_t {
-    time_type when; // in millis value
-    func_type func;
+    time_type when; ///< In millis value.
+    func_type func; ///< A function without arguments and no return value.
     task_t(time_type when=0, func_type func=0) : when(when), func(func) {}
   };
 
+  /// This key allow to extract the key value from heap objects.
   struct key_func_t {
     const TaskTimer *task_timer;
     key_func_t(const TaskTimer *task_timer) : task_timer(task_timer) {}
+    /// Retrusn the when field of the given task id.
     time_type operator()(const id_type &id) const {
       return task_timer->tasks[id].when;
     }
   };
-  
-  task_t tasks[MAX]; // an array
+
+  /// A list of tasks.
+  task_t tasks[MAX];
+  /// Tasks are ordered by its when field.
   MinHeap<id_type,MAX,key_func_t,time_type> tasks_heap;
+  /// A stack of free id values.
   Stack<id_type,MAX> ids_stack;
 };
 

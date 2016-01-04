@@ -24,23 +24,40 @@
 #ifndef MIN_HEAP_H
 #define MIN_HEAP_H
 
-template<typename T, int MAX, typename KEYFN, typename KEY>
+/**
+ * @brief a MinHeap implementation templatized with object type T, a maximum
+ * number of elements MAX, a function to extract key order KEYFN, and a key type
+ * K.
+ *
+ * This heap uses two arrays. The first one starts at 0 and contains MAX
+ * elements. The second one references first one at position -1, so it starts at
+ * position 1 instead of 0 and have MAX elements (MAX+1 if you count 0).
+ */
+template<typename T, int MAX, typename KEYFN, typename K>
 class MinHeap {
 public:
+  /// Needs an instance of the key function.
   MinHeap(const KEYFN &keyfn = KEYFN());
+  /// Returns the object with minimum key.
   T top() const;
+  /// Removes the minimum key object.
   void pop();
+  /// Introduces a new object in the heap.
   void push(const T &id);
+  /// Returns the number of elements in the heap.
   int size() const;
+  /// Returns the maximum capacity of the heap.
   int capacity() const;
+  /// Indicates if the heap is empty.
   bool empty() const { return sz==0; }
   
 private:
-  int sz;
-  T __heap__[MAX]; // an array
-  T *heap; // with a non valid 0 position, so it is size MAX+1
-  KEYFN keyfn;
+  int sz; ///< Number of elements.
+  T __heap__[MAX]; ///< An array with heap data.
+  T *heap; ///< With a non valid 0 position, so it starts at 1.
+  KEYFN keyfn; ///< The key function given during construction.
 
+  /// Iterative implementation of heapify operation.
   void heapify(int pos);
 };
 

@@ -21,48 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-#ifndef STACK_H
-#define STACK_H
+#ifndef PIR_SENSOR_H
+#define PIR_SENSOR_H
+#include "Arduino.h"
+#include "AlarmSensor.h"
 
-/// Array stack implementation for type T and maximum number of elements MAX.
-template<typename T, int MAX>
-class Stack {
+class PIRSensor : public AlarmSensor {
 public:
-  Stack();
-  /// Adds a new element to the top of the stack.
-  void push(const T &x);
-  /// Returns the element at the top of the stack.
-  T top() const;
-  /// Removes the element at the top of the stack.
-  void pop();
-  /// Returns the number of elements in the stack.
-  int size() const;
-  /// Returns the maximum capacity of the stack.
-  int capacity() const;
-  /// Indicates if the stack is empty.
-  bool empty() const { return sz==0; }
-  
+  PIRSensor(int pin) : pin(pin) { };
+  virtual void setup() {
+    pinMode(pin, INPUT);
+  }
+  virtual bool checkActivity() {
+    int val = digitalRead(pin);
+    return (val == HIGH);
+  }
+  virtual const char * const getName() { return "PIR"; }
 private:
-  int sz; ///< Number of elements.
-  T stack[MAX]; ///< Array where stack elements are stored.
+  int pin, count;
 };
 
-template<typename T, int MAX>
-Stack<T,MAX>::Stack() : sz(0) {}
-
-template<typename T, int MAX>
-void Stack<T,MAX>::push(const T &x) { stack[sz++] = x; }
-
-template<typename T, int MAX>
-T Stack<T,MAX>::top() const { return stack[sz-1]; }
-
-template<typename T, int MAX>
-void Stack<T,MAX>::pop() { --sz; }
-
-template<typename T, int MAX>
-int Stack<T,MAX>::size() const { return sz; }
-
-template<typename T, int MAX>
-int Stack<T,MAX>::capacity() const { return MAX; }
-
-#endif // STACK_H
+#endif // PIR_SENSOR_H
