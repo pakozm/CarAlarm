@@ -40,12 +40,12 @@ public:
     Serial.print("PIR: count= ");
     Serial.println(count);
 #endif
-    return (count >= PRESENCE_COUNT);
+    return (count >= COUNT_THRESHOLD);
   }
   virtual const char * const getName() { return "PIR"; }
 private:
   int pin, count;
-  static const int PRESENCE_COUNT=2;
+  static const int COUNT_THRESHOLD=1;
 };
 
 #endif // PIR_SENSOR_H
