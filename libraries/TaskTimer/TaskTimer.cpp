@@ -25,6 +25,10 @@
 #include <JeeLib.h>
 #include "TaskTimer.h"
 
+#ifndef Arduino_h
+extern void delay(unsigned long ms);
+#endif
+
 void sleep(time_type ms) {
   if (ms > 0) {
 #ifdef JeeLib_h

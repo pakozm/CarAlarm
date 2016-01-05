@@ -24,6 +24,12 @@
 #ifndef TASK_TIMER_H
 #define TASK_TIMER_H
 
+#ifndef Arduino_h
+extern "C"{
+#include <limits.h>
+}
+#endif
+
 #include "Arduino.h"
 #include "MinHeap.h"
 #include "Stack.h"
@@ -45,6 +51,11 @@ void sleep(time_type ms);
  * @brief This class allow to schedule in time simple functions without
  * arguments.
  *
+ * @note When millis() is close to overflow, all timers will be executed at the
+ * same time. Fortunatelly this only happens every 59 days.
+ *
+ * @note The maximum number of mili-seconds for any timer is 99999999.
+ *
  * @note Inspired by: http://jeelabs.org/pub/docs/jeelib/classScheduler.html
  */ 
 template<char MAX=10>
@@ -56,7 +67,7 @@ public:
    * @brief Return next task to run, WAIT_MORE if there are none ready to run, but
    * there are tasks waiting, or ALL_IDLE if there are no tasks waiting
    */
-  id_type poll() const;
+  id_type poll();
   
   /**
    * @brief Runs next available task, using Sleepy::loseSomeTime() for waiting and
@@ -70,9 +81,18 @@ public:
   /// Cancel a task timer.
   void cancel(id_type id);
 
+  /// Executes the given task canceling it.
+  void run(id_type id);
+  
 private:
-  /// Traverses heap tasks until next one not canceled.
-  void removeCanceledTasks();
+  /// Traverses heap tasks until next one not cancelled.
+  void removeCancelledTasks();
+
+  /// Returns ms until execution of given task.
+  time_type computeSleepTime(id_type id) const;
+
+  /// Pushes pending tasks into the heap only if the heap is empty.
+  void movePendingToHeap();
 
   /// A task is defined by a time in millis type and a function.
   struct task_t {
@@ -97,6 +117,10 @@ private:
   MinHeap<id_type,MAX,key_func_t,time_type> tasks_heap;
   /// A stack of free id values.
   Stack<id_type,MAX> ids_stack;
+  /// A stack of pending tasks to avoid problems with millis() overflow.
+  Stack<id_type,MAX> pending_stack;
+
+  static const time_type MAX_TIMER_TIME = 99999999; // 99999.999 seconds
 };
 
 template<char MAX>
@@ -108,11 +132,13 @@ TaskTimer<MAX>::TaskTimer() :
 }
 
 template<char MAX>
-id_type TaskTimer<MAX>::poll() const {
+id_type TaskTimer<MAX>::poll() {
+  removeCancelledTasks();
+  movePendingToHeap();
   if (!tasks_heap.empty()) {
     id_type id = tasks_heap.top();
-    time_type t = millis();
-    if (t < tasks[id].when) return WAIT_MORE;
+    time_type sleep_time = computeSleepTime(id);
+    if (sleep_time > 0) return WAIT_MORE;
     return id;
   }
   else {
@@ -122,15 +148,13 @@ id_type TaskTimer<MAX>::poll() const {
 
 template<char MAX>
 id_type TaskTimer<MAX>::pollWaiting() {
-  removeCanceledTasks();
+  removeCancelledTasks();
+  movePendingToHeap();
   if (!tasks_heap.empty()) {
     id_type id = tasks_heap.top();
-    task_t task = tasks[id];
-    time_type ETA = task.when - millis();
-    if (ETA > 0) sleep(ETA);
-    task.func();
-    tasks_heap.pop();
-    ids_stack.push(id);
+    time_type sleep_time = computeSleepTime(id);
+    sleep(sleep_time);
+    run(id);
     return id;
   }
   else {
@@ -143,22 +167,71 @@ id_type TaskTimer<MAX>::timer(time_type ms, func_type func) {
   id_type id = ids_stack.top();
   ids_stack.pop();
   task_t &task = tasks[id];
-  task.when = millis() + ms;
+  time_type t = millis();
+  task.when = t + ms;
   task.func = func;
-  tasks_heap.push(id);
+  // push it at pending_stack when timer overflows
+  if (task.when < t) {
+    pending_stack.push(id);
+  }
+  // otherwise push it at tasks_heap
+  else {
+    tasks_heap.push(id);
+  }
   return id;
 }
 
 // cancel a task timer
 template<char MAX>
 void TaskTimer<MAX>::cancel(id_type id) {
-  tasks[id].func = 0;
+  if (tasks_heap.top() == id) {
+    ids_stack.push( tasks_heap.top() );
+    tasks_heap.pop();
+  }
+  else {
+    tasks[id].func = 0;
+  }
 }
 
 template<char MAX>
-void TaskTimer<MAX>::removeCanceledTasks() {
+void TaskTimer<MAX>::removeCancelledTasks() {
   while(!tasks_heap.empty() && tasks[tasks_heap.top()].func==0) {
+    ids_stack.push( tasks_heap.top() );
     tasks_heap.pop();
+  }
+}
+
+template<char MAX>
+time_type TaskTimer<MAX>::computeSleepTime(id_type id) const {
+  const task_t &task = tasks[id];
+  time_type t = millis(), sleep_time=0;
+  if (t < task.when) {
+    time_type dt = task.when - t;
+    if (dt < MAX_TIMER_TIME) {
+      sleep_time = dt;
+    }
+  }
+  else if (t - task.when > MAX_TIMER_TIME) {
+    sleep_time = ULONG_MAX - t + task.when;
+  }
+  return sleep_time;
+}
+
+template<char MAX>
+void TaskTimer<MAX>::run(id_type id) {
+  const task_t &task = tasks[id];
+  task.func();
+  cancel(id);
+}
+
+template<char MAX>
+void TaskTimer<MAX>::movePendingToHeap() {
+  if (tasks_heap.empty() && !pending_stack.empty()) {
+    while(!pending_stack.empty()) {
+      tasks_heap.push( pending_stack.top() );
+      pending_stack.pop();
+    }
+    removeCancelledTasks();
   }
 }
 
