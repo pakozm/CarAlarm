@@ -51,10 +51,14 @@ void sleep(time_type ms);
  * @brief This class allow to schedule in time simple functions without
  * arguments.
  *
- * @note When millis() is close to overflow, all timers will be executed at the
- * same time. Fortunatelly this only happens every 59 days.
+ * This class uses a MinHeap to order all timers by their execution time in
+ * mili-seconds (as returned by millis() function). Overflow is avoided by using
+ * a secondary stack with such tasks which execution time has overflowed current
+ * millis() value. When MinHeap is empty, all pending tasks at the secondary
+ * stack are pushed into this MinHeap.
  *
- * @note The maximum number of mili-seconds for any timer is 99999999.
+ * @note The maximum number of mili-seconds for any timer is 99999999. Any timer
+ * with more than this number of mili-seconds will produce unknown behavior.
  *
  * @note Inspired by: http://jeelabs.org/pub/docs/jeelib/classScheduler.html
  */ 
@@ -117,9 +121,10 @@ private:
   MinHeap<id_type,MAX,key_func_t,time_type> tasks_heap;
   /// A stack of free id values.
   Stack<id_type,MAX> ids_stack;
-  /// A stack of pending tasks to avoid problems with millis() overflow.
+  /// A secondary stack with pending tasks to avoid millis() overflow problem.
   Stack<id_type,MAX> pending_stack;
 
+  /// Maximum number of mili-seconds for any timer task.
   static const time_type MAX_TIMER_TIME = 99999999; // 99999.999 seconds
 };
 
