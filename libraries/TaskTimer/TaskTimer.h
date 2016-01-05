@@ -28,6 +28,8 @@
 extern "C"{
 #include <limits.h>
 }
+#else
+const unsigned long ULONG_MAX = 0xFFFFFFFF;
 #endif
 
 #include "Arduino.h"

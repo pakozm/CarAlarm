@@ -150,6 +150,7 @@ private:
   float sum(float *vec) {
     float r = 0.0f;
     for (int j=0; j<3; ++j) r += vec[j];
+    return r;
   }
 
   void axpy(float *dst, float a, const float *src) {
