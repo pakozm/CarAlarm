@@ -60,6 +60,7 @@
 #include <JeeLib.h>
 ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
 #include <TaskTimer.h>
+#include <SensorTransformations.h>
 
 #define DEBUG
 #include "AlarmSensor.h"
@@ -72,7 +73,8 @@ const byte VERSION = 04; // firmware version divided by 10 e,g 16 = V1.6
 const unsigned long PERIOD_SLEEP =   100; // 100 ms
 const unsigned long BLINK_DELAY  = 10000; // 10 seconds
 
-const unsigned long TEMPERATURE_PERIOD = 1000; // 1 second
+const unsigned long CALIBRATION_DELAY  = 900000; // 15 minutes
+const unsigned long TEMPERATURE_PERIOD =   1000; //  1 second
 
 #ifdef DEBUG
 const unsigned long START_SLEEP    =  1000; // 1 seconds
@@ -117,7 +119,7 @@ const float ACC_TH = 10.0f;
 
 long Vcc; // in mili-volts
 TaskTimerWithHeap<MAX_TASKS> scheduler;
-id_type blink_task, alarm_task;
+id_type blink_task, alarm_task, calibration_task;
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -153,33 +155,6 @@ void blink(unsigned long ms=100, unsigned long post_ms=200) {
 void buzz(unsigned long ms=100, unsigned long post_ms=200) {
   buzzer_on(); sleep(ms);
   buzzer_off(); sleep(post_ms);
-}
-
-// from: http://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/
-long readVcc() {
-  // Read 1.1V reference against AVcc
-  // set the reference to Vcc and the measurement to the internal 1.1V reference
-#if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-  ADMUX = _BV(REFS0) | _BV(MUX4) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-#elif defined (__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
-  ADMUX = _BV(MUX5) | _BV(MUX0);
-#elif defined (__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
-  ADMUX = _BV(MUX3) | _BV(MUX2);
-#else
-  ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-#endif  
-
-  sleep(2); // Wait for Vref to settle
-  ADCSRA |= _BV(ADSC); // Start conversion
-  while (bit_is_set(ADCSRA,ADSC)); // measuring
-
-  uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH  
-  uint8_t high = ADCH; // unlocks both
-
-  long result = (high<<8) | low;
-
-  result = 1125300L / result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
-  return result; // Vcc in millivolts
 }
 
 void alarmOn() {
@@ -259,6 +234,11 @@ void alarm_check(void *)
   }
 }
 
+void calibrate_timer(void *) {
+  SensorUtils::calibrateVcc();
+  calibration_task = scheduler.timer(CALIBRATION_DELAY, calibrate_timer);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 void setup()
@@ -274,8 +254,7 @@ void setup()
   Serial.println("Francisco Zamora-Martinez (2016)");
   digitalWrite(LED_PIN, LOW);
 
-  Vcc = readVcc();
-  
+  Vcc = SensorUtils::calibrateVcc();
   if (check_failure_Vcc()) return;
   
   Serial.print("START.....wait ");
@@ -294,6 +273,7 @@ void setup()
   // schedule all required tasks
   blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
   alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
+  calibration_task = scheduler.timer(CALIBRATION_DELAY, calibrate_timer);
   
 } // end SETUP
 

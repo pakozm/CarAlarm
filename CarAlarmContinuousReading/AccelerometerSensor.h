@@ -25,6 +25,7 @@
 #define ACC_SENSOR_H
 #include "Arduino.h"
 #include "AlarmSensor.h"
+#include "AccelerometerUtils.h"
 
 class AccelerometerSensor : public AlarmSensor {
 public:
@@ -101,15 +102,15 @@ public:
   virtual const char * const getName() { return "ACC"; }
   
   float readAccX() const {
-    return convertToG(convertToMv(analogRead(pins[0])));
+    return AccelerometerUtils::convertToG(analogRead(pins[0]));
   }
   
   float readAccY() const {
-    return convertToG(convertToMv(analogRead(pins[1])));
+    return AccelerometerUtils::convertToG(analogRead(pins[1]));
   }
   
   float readAccZ() const {
-    return convertToG(convertToMv(analogRead(pins[2])));
+    return AccelerometerUtils::convertToG(analogRead(pins[2]));
   }
   
 private:
@@ -118,12 +119,7 @@ private:
   float threshold2;
   static const int SETUP_NUM_SAMPLES=30;
   static const unsigned long SETUP_SAMPLE_DELAY=50;
-  static const float SCALE = 6.0f/3300.0f;
   
-  static float convertToG(float mv) {
-    return mv*SCALE - 3.0f;
-  }
-
   template<typename T>
   void print(const T *vec) {
     for (int i=0; i<3; ++i) {

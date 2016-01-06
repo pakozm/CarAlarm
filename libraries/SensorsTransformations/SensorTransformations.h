@@ -21,58 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-#ifndef TEMPERATURE_SENSOR_H
-#define TEMPERATURE_SENSOR_H
-#include "Arduino.h"
-#include "AlarmSensor.h"
+#ifndef SENSOR_TRANSFORMATIONS_H
+#define SENSOR_TRANSFORMATIONS_H
+
+#include "SensorUtils.h"
+#include "AccelerometerUtils.h"
 #include "TemperatureUtils.h"
 
-class TemperatureSensor : public AlarmSensorWithTimer {
-public:
-  TemperatureSensor(int pin) : pin(pin) {}
-
-  virtual void setup() {
-    pinMode(pin, INPUT);
-    reset();
-  }
-  
-  virtual bool checkActivity() {
-    return active;
-  }
-  
-  virtual void reset() {
-    temp_ref = readTemperature();
-    active   = false;
-    count    = 0;
-  }
-  virtual const char * const getName() { return "Temp"; }
-
-  float readTemperature() const {
-    return TemperatureUtils::convertToCelsius(analogRead(pin));
-  }
-  
-private:
-  int   pin, count;
-  float temp_ref;
-  bool  active;
-  static const float ALPHA    = 0.9;
-  static const float EPSILON  = 0.5;
-  static const float COUNT_TH = 5;
-
-  virtual bool timerStep() {
-    float val      = readTemperature();
-    float abs_diff = fabsf(temp_ref - val);
-#ifdef DEBUG
-    Serial.print("Temp: ref= ");
-    Serial.println(temp_ref);
-    Serial.print("      cur= ");
-    Serial.println(val);
-#endif
-    temp_ref = ALPHA*temp_ref + (1-ALPHA)*val;
-    active |= (count>COUNT_TH) && (abs_diff > EPSILON);
-    // true forces to register again the timer
-    return true;
-  }
-};
-
-#endif // TEMPERATURE_SENSOR_H
+#endif // SENSOR_TRANSFORMATIONS_H

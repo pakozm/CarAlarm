@@ -43,13 +43,6 @@ public:
   
   /// returns a name string
   virtual const char * const getName()=0;
-  
-  /// converts 0..1023 values to mili-volts (0V..5V)
-  static float convertToMv(int value) {
-    return value * MV_SCALE;
-  }
-private:
-  static const float MV_SCALE = 5000.0f / 1023.0f;
 };
 
 /**
