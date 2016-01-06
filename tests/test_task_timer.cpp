@@ -13,7 +13,7 @@ using namespace std;
 #define TASK2_SLEEP 1100
 #define TASK3_SLEEP 1500
 
-TaskTimer<10> scheduler;
+TaskTimerWithHeap<10> scheduler;
 
 unsigned long t0=0;
 unsigned long t=0;
@@ -48,17 +48,17 @@ void delay(unsigned long ms) {
                 
 id_type task1_id, task2_id, task3_id;
 
-void task1() {
+void task1(void *) {
   // cout << "Task1" << endl;
   task1_id=scheduler.timer(TASK1_SLEEP, task1);
 }
 
-void task2() {
+void task2(void *) {
   // cout << "Task2" << endl;
   task2_id=scheduler.timer(TASK2_SLEEP, task2);
 }
 
-void task3() {
+void task3(void *) {
   // cout << "Task3" << endl;
   task3_id=scheduler.timer(TASK3_SLEEP, task3);
 }

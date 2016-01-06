@@ -28,10 +28,12 @@
 
 class PIRSensor : public AlarmSensor {
 public:
-  PIRSensor(int pin) : pin(pin), count(0) { };
+  PIRSensor(int pin) : pin(pin), count(0) {}
+  
   virtual void setup() {
     pinMode(pin, INPUT);
   }
+  
   virtual bool checkActivity() {
     int val = digitalRead(pin);
     if (val == HIGH) ++count;
@@ -42,7 +44,11 @@ public:
 #endif
     return (count >= COUNT_THRESHOLD);
   }
+  
+  virtual void reset() {}
+  
   virtual const char * const getName() { return "PIR"; }
+  
 private:
   int pin, count;
   static const int COUNT_THRESHOLD=1;

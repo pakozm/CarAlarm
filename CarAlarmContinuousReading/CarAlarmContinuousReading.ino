@@ -72,6 +72,8 @@ const byte VERSION = 04; // firmware version divided by 10 e,g 16 = V1.6
 const unsigned long PERIOD_SLEEP =   100; // 100 ms
 const unsigned long BLINK_DELAY  = 10000; // 10 seconds
 
+const unsigned long TEMPERATURE_PERIOD = 1000; // 1 second
+
 #ifdef DEBUG
 const unsigned long START_SLEEP    =  1000; // 1 seconds
 const unsigned long REARM_DELAY    =  4000; // 4 seconds
@@ -114,7 +116,7 @@ const int TEMP_PIN  = 5;
 const float ACC_TH = 10.0f;
 
 long Vcc; // in mili-volts
-TaskTimer<MAX_TASKS> scheduler;
+TaskTimerWithHeap<MAX_TASKS> scheduler;
 id_type blink_task, alarm_task;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -227,12 +229,12 @@ bool check_failure_Vcc() {
   return false;
 }
 
-void blink_and_repeat() {
+void blink_and_repeat(void *) {
   blink();
   blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
 }
 
-void alarm_check()
+void alarm_check(void *)
 {
   int i, activity_detected=0;
 
@@ -247,6 +249,9 @@ void alarm_check()
   }
   if (activity_detected) {
     alarmOn();
+    for (int i=0; i<NUM_SENSORS; ++i) {
+      sensors[i]->reset();
+    }
     alarm_task = scheduler.timer(REARM_DELAY, alarm_check);
   }
   else {
@@ -283,6 +288,9 @@ void setup()
     sensors[i]->setup();
   }
 
+  // register timer-based sensors
+  temp_sensor.registerTimer(&scheduler, TEMPERATURE_PERIOD);
+  
   // schedule all required tasks
   blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
   alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);

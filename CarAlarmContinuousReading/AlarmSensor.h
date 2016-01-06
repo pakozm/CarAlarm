@@ -23,20 +23,74 @@
  */
 #ifndef ALARM_SENSOR_H
 #define ALARM_SENSOR_H
+#include <TaskTimer.h>
+
+/**
+ * @brief Abstract with interface for all available sensors.
+ */
 class AlarmSensor {
 public:
   virtual ~AlarmSensor() {}
-  // initializes the sensor (probably calibrating its rest values)
+  
+  /// initializes the sensor (probably calibrating its rest values)
   virtual void setup()=0;
-  // checks if sensor is active or not
+  
+  /// checks if sensor is active or not
   virtual bool checkActivity()=0;
-  //
+  
+  /// resets the alarm sensor after activation
+  virtual void reset()=0;
+  
+  /// returns a name string
   virtual const char * const getName()=0;
-  //
+  
+  /// converts 0..1023 values to mili-volts (0V..5V)
   static float convertToMv(int value) {
     return value * MV_SCALE;
   }
 private:
   static const float MV_SCALE = 5000.0f / 1023.0f;
 };
+
+/**
+ * @brief Virtual class for timer-based sensors.
+ */
+class AlarmSensorWithTimer : public AlarmSensor {
+public:
+
+  virtual ~AlarmSensorWithTimer() {}
+  
+  /// Registers the timer at the given scheduler for the given time period.
+  virtual void registerTimer(TaskTimer *scheduler, time_type period) {
+    this->scheduler = scheduler;
+    this->period = period;
+    setupTimer();
+  }
+
+  /// Cancels the timer.
+  virtual void cancelTimer() {
+    scheduler->cancel(timer_id);
+  }
+
+  /// Registers the timer with previous one configuration.
+  virtual void setupTimer() {
+    timer_id = scheduler->timer(period, timerFunc, this);
+  }
+  
+protected:
+
+  /// Virtual method for delegation of timer step execution.
+  virtual bool timerStep()=0;
+private:
+  TaskTimer *scheduler;
+  time_type period;
+  id_type timer_id;
+
+  /// Static method, delegates its execution on timerStep() method.
+  static void timerFunc(void *ptr) {
+    AlarmSensorWithTimer *self = static_cast<AlarmSensorWithTimer*>(ptr);
+    if (self->timerStep()) self->registerTimer(self->scheduler, self->period);
+  }
+};
+
 #endif // ALARM_SENSOR_H

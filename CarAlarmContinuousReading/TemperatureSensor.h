@@ -26,14 +26,39 @@
 #include "Arduino.h"
 #include "AlarmSensor.h"
 
-class TemperatureSensor : public AlarmSensor {
+class TemperatureSensor : public AlarmSensorWithTimer {
 public:
-  TemperatureSensor(int pin) : pin(pin) { };
+  TemperatureSensor(int pin) : pin(pin) {}
+
   virtual void setup() {
     pinMode(pin, INPUT);
-    temp_ref = readTemperature();
+    reset();
   }
+  
   virtual bool checkActivity() {
+    return active;
+  }
+  
+  virtual void reset() {
+    temp_ref = readTemperature();
+    active   = false;
+    count    = 0;
+  }
+  virtual const char * const getName() { return "Temp"; }
+
+  float readTemperature() const {
+    return convertToMv(analogRead(pin))*100.0f - 50.0f;
+  }
+  
+private:
+  int   pin, count;
+  float temp_ref;
+  bool  active;
+  static const float ALPHA    = 0.9;
+  static const float EPSILON  = 0.5;
+  static const float COUNT_TH = 5;
+
+  virtual bool timerStep() {
     float val      = readTemperature();
     float abs_diff = fabsf(temp_ref - val);
 #ifdef DEBUG
@@ -43,17 +68,10 @@ public:
     Serial.println(val);
 #endif
     temp_ref = ALPHA*temp_ref + (1-ALPHA)*val;
-    return abs_diff > EPSILON;
+    active |= (count>COUNT_TH) && (abs_diff > EPSILON);
+    // true forces to register again the timer
+    return true;
   }
-  virtual const char * const getName() { return "Temp"; }
-  float readTemperature() const {
-    return convertToMv(analogRead(pin))*100.0f - 50.0f;
-  }
-private:
-  int pin;
-  float temp_ref;
-  static const float ALPHA = 0.9;
-  static const float EPSILON = 0.5;
 };
 
 #endif // TEMPERATURE_SENSOR_H

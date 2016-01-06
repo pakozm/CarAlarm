@@ -36,6 +36,7 @@ public:
     zeros(m_refs);
     zeros(s_refs);
   }
+  
   virtual void setup() {
     float samples[SETUP_NUM_SAMPLES][3];
     for (int i=0; i<SETUP_NUM_SAMPLES; ++i) {
@@ -67,6 +68,7 @@ public:
     axpy(high_refs, 1.0f, s_refs);
     axpy(low_refs, -1.0f, s_refs);
   }
+  
   virtual bool checkActivity() {
     float vec[3];
     readData(vec);
@@ -93,16 +95,23 @@ public:
 #endif
     return s > threshold2 || activity;
   }
+  
+  virtual void reset() {}
+  
   virtual const char * const getName() { return "ACC"; }
+  
   float readAccX() const {
     return convertToG(convertToMv(analogRead(pins[0])));
   }
+  
   float readAccY() const {
     return convertToG(convertToMv(analogRead(pins[1])));
   }
+  
   float readAccZ() const {
     return convertToG(convertToMv(analogRead(pins[2])));
   }
+  
 private:
   int pins[3];
   float m_refs[3], s_refs[3], low_refs[3], high_refs[3];
@@ -122,6 +131,7 @@ private:
       Serial.print(" ");
     }
   }
+  
   template<typename T>
   void println(const T *vec) {
     for (int i=0; i<3; ++i) {

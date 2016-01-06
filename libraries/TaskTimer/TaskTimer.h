@@ -36,9 +36,9 @@ const unsigned long ULONG_MAX = 0xFFFFFFFF;
 #include "MinHeap.h"
 #include "Stack.h"
 
-typedef unsigned long time_type; ///< This type is for time data.
-typedef int id_type;             ///< Type for task identification.
-typedef void (*func_type)();     ///< Task function interface.
+typedef unsigned long time_type;  ///< This type is for time data.
+typedef int id_type;              ///< Type for task identification.
+typedef void (*func_type)(void*); ///< Task function interface.
 
 const id_type WAIT_MORE=-1; ///< Indicates more time for polling a task.
 const id_type ALL_IDLE=-2;  ///< Indicates no jobs are pending.
@@ -49,9 +49,20 @@ const id_type ALL_IDLE=-2;  ///< Indicates no jobs are pending.
  */
 void sleep(time_type ms);
 
+class TaskTimer {
+public:
+  TaskTimer() {}
+  virtual ~TaskTimer() {}
+  virtual id_type poll()=0;
+  virtual id_type pollWaiting()=0;
+  virtual id_type timer(time_type ms, func_type func, void *arg=0)=0;
+  virtual void cancel(id_type id)=0;
+  virtual void run(id_type id)=0;
+};
+
 /**
- * @brief This class allow to schedule in time simple functions without
- * arguments.
+ * @brief This class allow to schedule in time simple functions with one
+ * argument pointer.
  *
  * This class uses a MinHeap to order all timers by their execution time in
  * mili-seconds (as returned by millis() function). Overflow is avoided by using
@@ -65,9 +76,9 @@ void sleep(time_type ms);
  * @note Inspired by: http://jeelabs.org/pub/docs/jeelib/classScheduler.html
  */ 
 template<char MAX=10>
-class TaskTimer {
+class TaskTimerWithHeap : public TaskTimer {
 public:
-  TaskTimer();
+  TaskTimerWithHeap();
   
   /**
    * @brief Return next task to run, WAIT_MORE if there are none ready to run, but
@@ -82,7 +93,7 @@ public:
   id_type pollWaiting();
   
   /// Set a task timer, in ms.
-  id_type timer(time_type ms, func_type func);
+  id_type timer(time_type ms, func_type func, void *arg=0);
   
   /// Cancel a task timer.
   void cancel(id_type id);
@@ -104,13 +115,15 @@ private:
   struct task_t {
     time_type when; ///< In millis value.
     func_type func; ///< A function without arguments and no return value.
-    task_t(time_type when=0, func_type func=0) : when(when), func(func) {}
+    void *arg; ///< One argument.
+    task_t(time_type when=0, func_type func=0,
+           void *arg=0) : when(when), func(func), arg(arg) {}
   };
 
   /// This key allow to extract the key value from heap objects.
   struct key_func_t {
-    const TaskTimer *task_timer;
-    key_func_t(const TaskTimer *task_timer) : task_timer(task_timer) {}
+    const TaskTimerWithHeap *task_timer;
+    key_func_t(const TaskTimerWithHeap *task_timer) : task_timer(task_timer) {}
     /// Retrusn the when field of the given task id.
     time_type operator()(const id_type &id) const {
       return task_timer->tasks[id].when;
@@ -131,7 +144,7 @@ private:
 };
 
 template<char MAX>
-TaskTimer<MAX>::TaskTimer() :
+TaskTimerWithHeap<MAX>::TaskTimerWithHeap() :
   tasks_heap(key_func_t(this)) {
   for (int i=0; i<MAX; ++i) {
     ids_stack.push(i);
@@ -139,7 +152,7 @@ TaskTimer<MAX>::TaskTimer() :
 }
 
 template<char MAX>
-id_type TaskTimer<MAX>::poll() {
+id_type TaskTimerWithHeap<MAX>::poll() {
   removeCancelledTasks();
   movePendingToHeap();
   if (!tasks_heap.empty()) {
@@ -154,7 +167,7 @@ id_type TaskTimer<MAX>::poll() {
 }
 
 template<char MAX>
-id_type TaskTimer<MAX>::pollWaiting() {
+id_type TaskTimerWithHeap<MAX>::pollWaiting() {
   removeCancelledTasks();
   movePendingToHeap();
   if (!tasks_heap.empty()) {
@@ -170,13 +183,14 @@ id_type TaskTimer<MAX>::pollWaiting() {
 }
 
 template<char MAX>
-id_type TaskTimer<MAX>::timer(time_type ms, func_type func) {
+id_type TaskTimerWithHeap<MAX>::timer(time_type ms, func_type func, void *arg) {
   id_type id = ids_stack.top();
   ids_stack.pop();
   task_t &task = tasks[id];
   time_type t = millis();
   task.when = t + ms;
   task.func = func;
+  task.arg  = arg;
   // push it at pending_stack when timer overflows
   if (task.when < t) {
     pending_stack.push(id);
@@ -190,18 +204,19 @@ id_type TaskTimer<MAX>::timer(time_type ms, func_type func) {
 
 // cancel a task timer
 template<char MAX>
-void TaskTimer<MAX>::cancel(id_type id) {
+void TaskTimerWithHeap<MAX>::cancel(id_type id) {
   if (tasks_heap.top() == id) {
     ids_stack.push( tasks_heap.top() );
     tasks_heap.pop();
   }
   else {
     tasks[id].func = 0;
+    tasks[id].arg  = 0;
   }
 }
 
 template<char MAX>
-void TaskTimer<MAX>::removeCancelledTasks() {
+void TaskTimerWithHeap<MAX>::removeCancelledTasks() {
   while(!tasks_heap.empty() && tasks[tasks_heap.top()].func==0) {
     ids_stack.push( tasks_heap.top() );
     tasks_heap.pop();
@@ -209,7 +224,7 @@ void TaskTimer<MAX>::removeCancelledTasks() {
 }
 
 template<char MAX>
-time_type TaskTimer<MAX>::computeSleepTime(id_type id) const {
+time_type TaskTimerWithHeap<MAX>::computeSleepTime(id_type id) const {
   const task_t &task = tasks[id];
   time_type t = millis(), sleep_time=0;
   if (t < task.when) {
@@ -225,14 +240,14 @@ time_type TaskTimer<MAX>::computeSleepTime(id_type id) const {
 }
 
 template<char MAX>
-void TaskTimer<MAX>::run(id_type id) {
+void TaskTimerWithHeap<MAX>::run(id_type id) {
   const task_t &task = tasks[id];
-  task.func();
+  task.func(task.arg);
   cancel(id);
 }
 
 template<char MAX>
-void TaskTimer<MAX>::movePendingToHeap() {
+void TaskTimerWithHeap<MAX>::movePendingToHeap() {
   if (tasks_heap.empty() && !pending_stack.empty()) {
     while(!pending_stack.empty()) {
       tasks_heap.push( pending_stack.top() );
