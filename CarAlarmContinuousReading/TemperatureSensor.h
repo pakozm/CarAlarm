@@ -27,6 +27,9 @@
 #include "AlarmSensor.h"
 #include "TemperatureUtils.h"
 
+// 10 samples lag to compare temperatures and compute gradient
+#define COUNT_TH 10
+
 class TemperatureSensor : public AlarmSensorWithTimer {
 public:
   TemperatureSensor(int pin) : pin(pin) {}
@@ -41,38 +44,49 @@ public:
   }
   
   virtual void reset() {
-    temp_ref = readTemperature();
+    temp_ref = readRawTemperature();
+    for (int i=0; i<COUNT_TH; ++i) temps[i] = temp_ref;
     active   = false;
     count    = 0;
   }
   virtual const char * const getName() { return "Temp"; }
-
+  
   float readTemperature() const {
+    return temps[(count+1)%COUNT_TH];
+  }
+  
+  float readRawTemperature() const {
     return TemperatureUtils::convertToCelsius(analogRead(pin));
   }
   
 private:
   int   pin, count;
-  float temp_ref;
+  float temp_ref, temps[COUNT_TH];
   bool  active;
   static const float ALPHA    = 0.9;
-  static const float EPSILON  = 0.5;
-  static const float COUNT_TH = 5;
+  static const float EPSILON  = 1.0;
 
   virtual bool timerStep() {
-    float val      = readTemperature();
-    float abs_diff = fabsf(temp_ref - val);
+    float raw      = readRawTemperature();
+    float cur      = readTemperature();
+    float abs_diff = fabsf(temp_ref - cur);
 #ifdef DEBUG
     Serial.print("Temp: ref= ");
     Serial.println(temp_ref);
     Serial.print("      cur= ");
-    Serial.println(val);
+    Serial.println(cur);
+    Serial.print("      raw= ");
+    Serial.println(raw);
 #endif
-    temp_ref = ALPHA*temp_ref + (1-ALPHA)*val;
+    temp_ref = ALPHA*temp_ref + (1-ALPHA)*raw;
     active |= (count>COUNT_TH) && (abs_diff > EPSILON);
+    count++;
+    temps[count%COUNT_TH] = temp_ref;
     // true forces to register again the timer
     return true;
   }
 };
+
+#undef COUNT_TH
 
 #endif // TEMPERATURE_SENSOR_H

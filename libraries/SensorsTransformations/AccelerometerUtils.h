@@ -29,11 +29,12 @@
 class AccelerometerUtils {
 public:
   static float convertToG(int value, float MV=SensorUtils::MV) {
-    return SensorUtils::convertToMv(value)*SCALE - 3.0f;
+    return (SensorUtils::convertToMv(value,MV) - ZEROG) * SCALE;
   }
 
 private:
-  static const float SCALE = 6.0f/3300.0f;
+  static const float ZEROG = 1650;
+  static const float SCALE = 1.0f/1650.0f;
 };
 
 #endif // ACC_UTILS_H

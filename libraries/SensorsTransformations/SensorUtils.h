@@ -29,7 +29,7 @@ class SensorUtils {
 public:
   /// converts 0..1023 values to mili-volts (0V..5V)
   static float convertToMv(int value, float MV=SensorUtils::MV) {
-    return value/1023.0f * MV;
+    return value*(MV/1023.0f);
   }
   
   // from: http://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/

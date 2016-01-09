@@ -67,14 +67,17 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
 #include "AccelerometerSensor.h"
 #include "PIRSensor.h"
 #include "TemperatureSensor.h"
+#include "TiltSensor.h"
 
 const byte VERSION = 04; // firmware version divided by 10 e,g 16 = V1.6
 // WARNING: should be PERIOD_SLEEP >= 100
 const unsigned long PERIOD_SLEEP =   100; // 100 ms
 const unsigned long BLINK_DELAY  = 10000; // 10 seconds
+const unsigned long LEDS_ARRAY_DELAY = 10000; // 10 seconds
 
 const unsigned long CALIBRATION_DELAY  = 900000; // 15 minutes
 const unsigned long TEMPERATURE_PERIOD =   1000; //  1 second
+const unsigned long TILT_PERIOD        =   1000; //  1 second
 
 #ifdef DEBUG
 const unsigned long START_SLEEP    =  1000; // 1 seconds
@@ -101,33 +104,64 @@ const long VCC_ALERT = 4000; // mili-volts
 const long VCC_ERROR = 3000; // mili-volts
 
 const int NUM_SENSORS = 3;
-const int MAX_TASKS = 4; // maximum number of tasks for Scheduler
+const int MAX_TASKS = 10; // maximum number of tasks for Scheduler
 
 // digital pins connection
-const int BUZ_PIN = 12;
-const int LED_PIN = 13;
+const int LEDS_ARRAY_LEN = 4;
+const int LEDS_ARRAY_PIN[] = {7, 8, 9, 10};
+const int BUZ_PIN = 11;
+const int LED_PIN = 12;
 const int PIR_PIN = 2;
+const int TLT_PIN = 3;
 
 // analogic pins connection
-const int ACC_X_PIN = 0;
+const int ACC_X_PIN = 2;
 const int ACC_Y_PIN = 1;
-const int ACC_Z_PIN = 2;
-const int TEMP_PIN  = 5;
+const int ACC_Z_PIN = 0;
+const int TMP_PIN   = 5;
 
 // accelerometer threshold
 const float ACC_TH = 10.0f;
 
 long Vcc; // in mili-volts
 TaskTimerWithHeap<MAX_TASKS> scheduler;
-id_type blink_task, alarm_task, calibration_task;
+id_type alarm_task, blink_task, calibration_task;
 
 ///////////////////////////////////////////////////////////////////////////
 
 AccelerometerSensor acc_sensor(ACC_X_PIN, ACC_Y_PIN, ACC_Z_PIN, ACC_TH);
 PIRSensor pir_sensor(PIR_PIN);
-TemperatureSensor temp_sensor(TEMP_PIN);
+TemperatureSensor temp_sensor(TMP_PIN);
+TiltSensor tilt_sensor(TLT_PIN);
 
-AlarmSensor *sensors[NUM_SENSORS] = { &pir_sensor, &acc_sensor, &temp_sensor };
+AlarmSensor *sensors[NUM_SENSORS] = { &pir_sensor, //&acc_sensor,
+                                      &temp_sensor, &tilt_sensor };
+
+template<typename T> void print(const T &obj);
+template<typename T> void println(const T &obj);
+
+template<typename T>
+void print(const T &obj) {
+#ifdef DEBUG
+  Serial.print(obj);
+#endif
+}
+
+template<typename T>
+void println(const T &obj) {
+#ifdef DEBUG
+  Serial.println(obj);
+#endif
+}
+
+void print_seconds(const char *prefix, unsigned long ms) {
+#ifdef DEBUG
+  Serial.print(prefix);
+  Serial.print(" ");
+  Serial.print(ms/1000.0f);
+  Serial.println(" seconds");
+#endif
+}
 
 void led_on() {
   digitalWrite(LED_PIN, HIGH);
@@ -157,26 +191,34 @@ void buzz(unsigned long ms=100, unsigned long post_ms=200) {
   buzzer_off(); sleep(post_ms);
 }
 
+void leds_array_blink() {
+  for (int i=0; i<LEDS_ARRAY_LEN; ++i) digitalWrite(LEDS_ARRAY_PIN[i], HIGH);
+  delay(50);
+  for (int i=0; i<LEDS_ARRAY_LEN; ++i) digitalWrite(LEDS_ARRAY_PIN[i], LOW);
+}
+
+void leds_array_blink_and_repeat(void *) {
+  leds_array_blink();
+  scheduler.timer(LEDS_ARRAY_DELAY, leds_array_blink_and_repeat);
+}
+
 void alarmOn() {
-#ifdef DEBUG
-  Serial.print("ALARM ON: delaying ");
-  Serial.print(ALARM_DELAY/1000.0);
-  Serial.println("s");
-#endif
   scheduler.cancel(blink_task);
 
+  print_seconds("ALARM ON: delaying", ALARM_DELAY);
   sleep(ALARM_DELAY);
+  print_seconds("          buzzing during", ALARM_DURATION);
+  
   unsigned long t0 = millis();
   while(millis() - t0 < ALARM_DURATION) {
+    leds_array_blink();
     led_on();
     buzz(1000, 1000);
     led_off();
   }
   
   blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
-#ifdef DEBUG
-  Serial.println("ALARM OFF");
-#endif
+  println("ALARM OFF");
 }
 
 bool check_failure_Vcc() {
@@ -215,10 +257,8 @@ void alarm_check(void *)
 
   for (i=0; i<NUM_SENSORS; ++i) {
     if (sensors[i]->checkActivity()) {
-#ifdef DEBUG
-      Serial.print("Activity at sensor: ");
-      Serial.println(sensors[i]->getName());
-#endif
+      print("Activity at sensor: ");
+      println(sensors[i]->getName());
       activity_detected = 1;
     }
   }
@@ -227,15 +267,21 @@ void alarm_check(void *)
     for (int i=0; i<NUM_SENSORS; ++i) {
       sensors[i]->reset();
     }
+    print_seconds("ALARM rearm in", REARM_DELAY);
     alarm_task = scheduler.timer(REARM_DELAY, alarm_check);
   }
   else {
+    /*
+      println("No activity detected");
+      print_seconds("ALARM check in", PERIOD_SLEEP);
+    */
     alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
   }
 }
 
 void calibrate_timer(void *) {
-  SensorUtils::calibrateVcc();
+  long Vcc = SensorUtils::calibrateVcc();
+  print("Vcc= "); println(Vcc);
   calibration_task = scheduler.timer(CALIBRATION_DELAY, calibrate_timer);
 }
 
@@ -243,23 +289,27 @@ void calibrate_timer(void *) {
 
 void setup()
 {
+  for (int i=0; i<LEDS_ARRAY_LEN; ++i) pinMode(LEDS_ARRAY_PIN[i], OUTPUT);
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUZ_PIN, OUTPUT);
+  pinMode(13, OUTPUT);
+  digitalWrite(13, LOW);
   digitalWrite(LED_PIN, HIGH);
 
   // initialization message
+  leds_array_blink();
   Serial.begin(9600);
+  delay(500);
   Serial.print("CarAlarmContinuousReading V");
-  Serial.println(VERSION*0.1);
+  Serial.println(VERSION*0.1f);
   Serial.println("Francisco Zamora-Martinez (2016)");
   digitalWrite(LED_PIN, LOW);
 
   Vcc = SensorUtils::calibrateVcc();
+  Serial.print("Vcc= "); Serial.println(Vcc);
   if (check_failure_Vcc()) return;
   
-  Serial.print("START.....wait ");
-  Serial.print(START_SLEEP/1000.0);
-  Serial.println("s");
+  print_seconds("START.....wait ", START_SLEEP);
   sleep(START_SLEEP);
 
   // initialize all installed sensors
@@ -269,25 +319,23 @@ void setup()
 
   // register timer-based sensors
   temp_sensor.registerTimer(&scheduler, TEMPERATURE_PERIOD);
+  tilt_sensor.registerTimer(&scheduler, TILT_PERIOD);
   
   // schedule all required tasks
   blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
   alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
   calibration_task = scheduler.timer(CALIBRATION_DELAY, calibrate_timer);
+  scheduler.timer(LEDS_ARRAY_DELAY, leds_array_blink_and_repeat);
   
 } // end SETUP
 
 void loop() {
   if (Vcc < VCC_ERROR) {
-#ifdef DEBUG
-    Serial.println("VCC_ERROR");
-#endif
+    println("VCC_ERROR");
     sleep(100000);
   }
   else if (scheduler.pollWaiting() == ALL_IDLE) {
-#ifdef DEBUG
-    Serial.println("ALL_IDLE");
-#endif
+    println("ALL_IDLE");
     sleep(100000);
   }
 }

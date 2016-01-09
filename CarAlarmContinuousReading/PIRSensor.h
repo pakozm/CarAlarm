@@ -39,8 +39,10 @@ public:
     if (val == HIGH) ++count;
     else count = 0;
 #ifdef DEBUG
-    Serial.print("PIR: count= ");
-    Serial.println(count);
+    if (count >= COUNT_THRESHOLD) {
+      Serial.print("PIR: count= ");
+      Serial.println(count);
+    }
 #endif
     return (count >= COUNT_THRESHOLD);
   }

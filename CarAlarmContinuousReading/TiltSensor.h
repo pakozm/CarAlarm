@@ -21,17 +21,54 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-#ifndef TEMP_UTILS_H
-#define TEMP_UTILS_H
+#ifndef TILT_SENSOR_H
+#define TILT_SENSOR_H
+#include "Arduino.h"
+#include "AlarmSensor.h"
 
-#include <Arduino.h>
-#include "SensorUtils.h"
-
-class TemperatureUtils {
+class TiltSensor : public AlarmSensorWithTimer {
 public:
-  static float convertToCelsius(int value, float MV=SensorUtils::MV) {
-    return SensorUtils::convertToMv(value,MV)/10.0f - 50.0f;
+  TiltSensor(int pin) : pin(pin), count(0) {}
+  
+  virtual void setup() {
+    pinMode(pin, INPUT);
+    digitalWrite(pin, HIGH);   // turn on the built in pull-up resistor
+    pinMode(pin, OUTPUT);
+    delay(50);
+    int val = digitalRead(pin);
+    if (val == HIGH) broken = true;
+    else broken = false;
+    reset();
+  }
+  
+  virtual bool checkActivity() {
+    return !broken && active;
+  }
+  
+  virtual void reset() {
+    active = false;
+    count  = 0;
+  }
+  
+  virtual const char * const getName() { return "Tilt"; }
+  
+private:
+  int pin, count;
+  bool active, broken;
+  static const int COUNT_THRESHOLD=10;
+
+  virtual bool timerStep() {
+    int val = digitalRead(pin);
+    if (val == HIGH) ++count;
+    else count = 0;
+#ifdef DEBUG
+    Serial.print("Tilt: count= ");
+    Serial.println(count);
+#endif
+    active |= (count >= COUNT_THRESHOLD);
+    // true forces to register again the timer
+    return true;
   }
 };
 
-#endif // TEMP_UTILS_H
+#endif // TILT_SENSOR_H

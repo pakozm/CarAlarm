@@ -63,11 +63,10 @@ public:
     println(s_refs);
 #endif
 
-    scal(s_refs, 2.0);
     copy(high_refs, m_refs);
     copy(low_refs, m_refs);
-    axpy(high_refs, 1.0f, s_refs);
-    axpy(low_refs, -1.0f, s_refs);
+    axpy(high_refs, 2.0f, s_refs);
+    axpy(low_refs, -2.0f, s_refs);
   }
   
   virtual bool checkActivity() {
