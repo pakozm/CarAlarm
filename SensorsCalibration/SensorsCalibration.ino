@@ -29,12 +29,9 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
 const unsigned long PERIOD_SLEEP = 100; // 100 ms
 
 // digital pins connection
-const int LEDS_ARRAY_LEN = 4;
-const int LEDS_ARRAY_PIN[] = {7, 8, 9, 10};
 const int BUZ_PIN = 11;
 const int LED_PIN = 12;
 const int PIR_PIN = 2;
-const int TLT_PIN = 3;
 
 // analogic pins connection
 const int ACC_X_PIN = 2;
@@ -74,29 +71,17 @@ void buzz(unsigned long ms=100, unsigned long post_ms=200) {
   buzzer_off(); delay(post_ms);
 }
 
-void leds_array_blink() {
-  for (int i=0; i<LEDS_ARRAY_LEN; ++i) digitalWrite(LEDS_ARRAY_PIN[i], HIGH);
-  delay(50);
-  for (int i=0; i<LEDS_ARRAY_LEN; ++i) digitalWrite(LEDS_ARRAY_PIN[i], LOW);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 
 void setup()
 {
-  for (int i=0; i<LEDS_ARRAY_LEN; ++i) pinMode(LEDS_ARRAY_PIN[i], OUTPUT);
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUZ_PIN, OUTPUT);
   pinMode(PIR_PIN, INPUT);
   pinMode(13, OUTPUT);
-  
-  pinMode(TLT_PIN, INPUT);
-  digitalWrite(TLT_PIN, HIGH);   // turn on the built in pull-up resistor
-  pinMode(TLT_PIN, OUTPUT);
-  
+    
   digitalWrite(13, LOW);
   // initialization message
-  leds_array_blink();
   digitalWrite(LED_PIN, HIGH);
   Serial.begin(9600);
   Serial.println("# SensorsCalibration");
@@ -110,21 +95,20 @@ void setup()
 } // end SETUP
 
 void loop() {
-  leds_array_blink();
   blink();
+  analogRead(ACC_X_PIN); delay(50);
   float x_acc = AccelerometerUtils::convertToG(analogRead(ACC_X_PIN));
   float y_acc = AccelerometerUtils::convertToG(analogRead(ACC_Y_PIN));
   float z_acc = AccelerometerUtils::convertToG(analogRead(ACC_Z_PIN));
+  delay(50);
   float temp  = TemperatureUtils::convertToCelsius(analogRead(TEMP_PIN));
   int pir = digitalRead(PIR_PIN);
-  int tilt = digitalRead(TLT_PIN);
   Serial.print(Vcc); Serial.print(" ");
   Serial.print(x_acc); Serial.print(" ");
   Serial.print(y_acc); Serial.print(" ");
   Serial.print(z_acc); Serial.print(" ");
   Serial.print(temp); Serial.print(" ");
-  Serial.print(pir); Serial.print(" ");
-  Serial.println(tilt);
+  Serial.println(pir);
   /*
     if (pir > 0) digitalWrite(BUZ_PIN, HIGH);
     else digitalWrite(BUZ_PIN, LOW);

@@ -99,17 +99,35 @@ public:
   virtual void reset() {}
   
   virtual const char * const getName() { return "ACC"; }
-  
+
+  /**
+   * @note x:[-0.23,0.15]
+   */
   float readAccX() const {
-    return AccelerometerUtils::convertToG(analogRead(pins[0]));
+    static const float min=-0.23, max=0.15;
+    static const float scale=1.0f/(0.5f*(max-min));
+    static const float offset=0.5f*max + 0.5f*min;
+    return (AccelerometerUtils::convertToG(analogRead(pins[0])) - offset)*scale;
   }
-  
+
+  /**
+   * @note y:[-0.22,0.17]
+   */
   float readAccY() const {
-    return AccelerometerUtils::convertToG(analogRead(pins[1]));
+    static const float min=-0.22, max=0.17;
+    static const float scale=1.0f/(0.5f*(max-min));
+    static const float offset=0.5f*max + 0.5f*min;
+    return (AccelerometerUtils::convertToG(analogRead(pins[1])) - offset)*scale;
   }
-  
+
+  /**
+   * @note z:[-0.19,0.20]
+   */
   float readAccZ() const {
-    return AccelerometerUtils::convertToG(analogRead(pins[2]));
+    static const float min=-0.19, max=0.20;
+    static const float scale=1.0f/(0.5f*(max-min));
+    static const float offset=0.5f*max + 0.5f*min;
+    return (AccelerometerUtils::convertToG(analogRead(pins[2])) - offset)*scale;
   }
   
 private:

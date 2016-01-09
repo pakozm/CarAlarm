@@ -56,6 +56,8 @@ public:
   }
   
   float readRawTemperature() const {
+    analogRead(pin);
+    delay(50);
     return TemperatureUtils::convertToCelsius(analogRead(pin));
   }
   

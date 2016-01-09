@@ -107,12 +107,9 @@ const int NUM_SENSORS = 3;
 const int MAX_TASKS = 10; // maximum number of tasks for Scheduler
 
 // digital pins connection
-const int LEDS_ARRAY_LEN = 4;
-const int LEDS_ARRAY_PIN[] = {7, 8, 9, 10};
 const int BUZ_PIN = 11;
 const int LED_PIN = 12;
 const int PIR_PIN = 2;
-const int TLT_PIN = 3;
 
 // analogic pins connection
 const int ACC_X_PIN = 2;
@@ -132,10 +129,9 @@ id_type alarm_task, blink_task, calibration_task;
 AccelerometerSensor acc_sensor(ACC_X_PIN, ACC_Y_PIN, ACC_Z_PIN, ACC_TH);
 PIRSensor pir_sensor(PIR_PIN);
 TemperatureSensor temp_sensor(TMP_PIN);
-TiltSensor tilt_sensor(TLT_PIN);
 
-AlarmSensor *sensors[NUM_SENSORS] = { &pir_sensor, //&acc_sensor,
-                                      &temp_sensor, &tilt_sensor };
+AlarmSensor *sensors[NUM_SENSORS] = { &pir_sensor, &acc_sensor,
+                                      &temp_sensor };
 
 template<typename T> void print(const T &obj);
 template<typename T> void println(const T &obj);
@@ -191,17 +187,6 @@ void buzz(unsigned long ms=100, unsigned long post_ms=200) {
   buzzer_off(); sleep(post_ms);
 }
 
-void leds_array_blink() {
-  for (int i=0; i<LEDS_ARRAY_LEN; ++i) digitalWrite(LEDS_ARRAY_PIN[i], HIGH);
-  delay(50);
-  for (int i=0; i<LEDS_ARRAY_LEN; ++i) digitalWrite(LEDS_ARRAY_PIN[i], LOW);
-}
-
-void leds_array_blink_and_repeat(void *) {
-  leds_array_blink();
-  scheduler.timer(LEDS_ARRAY_DELAY, leds_array_blink_and_repeat);
-}
-
 void alarmOn() {
   scheduler.cancel(blink_task);
 
@@ -211,7 +196,6 @@ void alarmOn() {
   
   unsigned long t0 = millis();
   while(millis() - t0 < ALARM_DURATION) {
-    leds_array_blink();
     led_on();
     buzz(1000, 1000);
     led_off();
@@ -289,7 +273,6 @@ void calibrate_timer(void *) {
 
 void setup()
 {
-  for (int i=0; i<LEDS_ARRAY_LEN; ++i) pinMode(LEDS_ARRAY_PIN[i], OUTPUT);
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUZ_PIN, OUTPUT);
   pinMode(13, OUTPUT);
@@ -297,7 +280,6 @@ void setup()
   digitalWrite(LED_PIN, HIGH);
 
   // initialization message
-  leds_array_blink();
   Serial.begin(9600);
   delay(500);
   Serial.print("CarAlarmContinuousReading V");
@@ -319,17 +301,18 @@ void setup()
 
   // register timer-based sensors
   temp_sensor.registerTimer(&scheduler, TEMPERATURE_PERIOD);
-  tilt_sensor.registerTimer(&scheduler, TILT_PERIOD);
   
   // schedule all required tasks
   blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
   alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
   calibration_task = scheduler.timer(CALIBRATION_DELAY, calibrate_timer);
-  scheduler.timer(LEDS_ARRAY_DELAY, leds_array_blink_and_repeat);
   
 } // end SETUP
 
 void loop() {
+  println(acc_sensor.readAccX());
+  println(acc_sensor.readAccY());
+  println(acc_sensor.readAccZ());
   if (Vcc < VCC_ERROR) {
     println("VCC_ERROR");
     sleep(100000);
