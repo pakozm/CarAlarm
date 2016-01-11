@@ -91,10 +91,10 @@ const unsigned long ALARM_DURATION =  60000; // 60 seconds
 #endif
 
 const int BATTERY_OK_REPETITIONS    = 2;
-const int BATTERY_OK_DURATION       = 100; // 100 ms
+const int BATTERY_OK_DURATION       = 50; // 50 ms
 
 const int BATTERY_ALERT_REPETITIONS = 3;
-const int BATTERY_ALERT_DURATION    = 1000; // 1 second
+const int BATTERY_ALERT_DURATION    = 500; // 0.5 seconds
 
 const int BATTERY_ERROR_REPETITIONS = 10;
 const int BATTERY_ERROR_DURATION    = 100; // 100 ms
