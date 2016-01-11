@@ -51,6 +51,7 @@
   
   
   Change Log:
+  v0.5 2016/01/11 Using integer math for sensors.
   v0.4 2016/01/03 Using a timer scheduler.
   v0.3 2016/01/02 Added battery level indications at start.
   v0.2 2016/01/02 Added readVcc() routine.
@@ -69,15 +70,13 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
 #include "TemperatureSensor.h"
 #include "TiltSensor.h"
 
-const byte VERSION = 04; // firmware version divided by 10 e,g 16 = V1.6
+const byte VERSION = 05; // firmware version divided by 10 e,g 16 = V1.6
 // WARNING: should be PERIOD_SLEEP >= 100
-const unsigned long PERIOD_SLEEP =   100; // 100 ms
+const unsigned long PERIOD_SLEEP =  1000; // 1000 ms
 const unsigned long BLINK_DELAY  = 10000; // 10 seconds
-const unsigned long LEDS_ARRAY_DELAY = 10000; // 10 seconds
 
 const unsigned long CALIBRATION_DELAY  = 900000; // 15 minutes
-const unsigned long TEMPERATURE_PERIOD =   1000; //  1 second
-const unsigned long TILT_PERIOD        =   1000; //  1 second
+const unsigned long TEMPERATURE_PERIOD =   2000; //  2 second
 
 #ifdef DEBUG
 const unsigned long START_SLEEP    =  1000; // 1 seconds
@@ -85,10 +84,10 @@ const unsigned long REARM_DELAY    =  4000; // 4 seconds
 const unsigned long ALARM_DELAY    =  1000; // 1 seconds
 const unsigned long ALARM_DURATION =  6000; // 6 seconds
 #else
-const unsigned long START_SLEEP    = 60000; // 60 seconds
-const unsigned long REARM_DELAY    = 60000; // 60 seconds
-const unsigned long ALARM_DELAY    = 10000; // 10 seconds
-const unsigned long ALARM_DURATION = 60000; // 60 seconds
+const unsigned long START_SLEEP    =  60000; // 60 seconds
+const unsigned long REARM_DELAY    = 900000; // 15 minutes
+const unsigned long ALARM_DELAY    =  10000; // 10 seconds
+const unsigned long ALARM_DURATION =  60000; // 60 seconds
 #endif
 
 const int BATTERY_OK_REPETITIONS    = 2;
@@ -130,7 +129,8 @@ AccelerometerSensor acc_sensor(ACC_X_PIN, ACC_Y_PIN, ACC_Z_PIN, ACC_TH);
 PIRSensor pir_sensor(PIR_PIN);
 TemperatureSensor temp_sensor(TMP_PIN);
 
-AlarmSensor *sensors[NUM_SENSORS] = { &pir_sensor, &acc_sensor,
+AlarmSensor *sensors[NUM_SENSORS] = { &acc_sensor,
+                                      &pir_sensor,
                                       &temp_sensor };
 
 template<typename T> void print(const T &obj);
@@ -138,25 +138,21 @@ template<typename T> void println(const T &obj);
 
 template<typename T>
 void print(const T &obj) {
-#ifdef DEBUG
-  Serial.print(obj);
-#endif
+  if (Serial) Serial.print(obj);
 }
 
 template<typename T>
 void println(const T &obj) {
-#ifdef DEBUG
-  Serial.println(obj);
-#endif
+  if (Serial) Serial.println(obj);
 }
 
 void print_seconds(const char *prefix, unsigned long ms) {
-#ifdef DEBUG
-  Serial.print(prefix);
-  Serial.print(" ");
-  Serial.print(ms/1000.0f);
-  Serial.println(" seconds");
-#endif
+  if (Serial) {
+    Serial.print(prefix);
+    Serial.print(" ");
+    Serial.print(ms/1000.0f);
+    Serial.println(" seconds");
+  }
 }
 
 void led_on() {
@@ -190,15 +186,18 @@ void buzz(unsigned long ms=100, unsigned long post_ms=200) {
 void alarmOn() {
   scheduler.cancel(blink_task);
 
+  led_on();
   print_seconds("ALARM ON: delaying", ALARM_DELAY);
   sleep(ALARM_DELAY);
   print_seconds("          buzzing during", ALARM_DURATION);
+  led_off();
   
   unsigned long t0 = millis();
   while(millis() - t0 < ALARM_DURATION) {
     led_on();
-    buzz(1000, 1000);
+    buzz(1000, 0);
     led_off();
+    sleep(1000);
   }
   
   blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
@@ -281,18 +280,19 @@ void setup()
 
   // initialization message
   Serial.begin(9600);
-  delay(500);
-  Serial.print("CarAlarmContinuousReading V");
-  Serial.println(VERSION*0.1f);
-  Serial.println("Francisco Zamora-Martinez (2016)");
+  while (!Serial) {}  // wait for Leonardo
+  print("CarAlarmContinuousReading V");
+  println(VERSION*0.1f);
+  println("Francisco Zamora-Martinez (2016)");
   digitalWrite(LED_PIN, LOW);
 
   Vcc = SensorUtils::calibrateVcc();
-  Serial.print("Vcc= "); Serial.println(Vcc);
+  print("Vcc= "); println(Vcc);
   if (check_failure_Vcc()) return;
   
   print_seconds("START.....wait ", START_SLEEP);
   sleep(START_SLEEP);
+  blink();
 
   // initialize all installed sensors
   for (int i=0; i<NUM_SENSORS; ++i) {
@@ -310,9 +310,6 @@ void setup()
 } // end SETUP
 
 void loop() {
-  println(acc_sensor.readAccX());
-  println(acc_sensor.readAccY());
-  println(acc_sensor.readAccZ());
   if (Vcc < VCC_ERROR) {
     println("VCC_ERROR");
     sleep(100000);

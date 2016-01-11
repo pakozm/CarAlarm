@@ -38,12 +38,12 @@ public:
     int val = digitalRead(pin);
     if (val == HIGH) ++count;
     else count = 0;
-#ifdef DEBUG
-    if (count >= COUNT_THRESHOLD) {
-      Serial.print("PIR: count= ");
-      Serial.println(count);
+    if (Serial) {
+      if (count >= COUNT_THRESHOLD) {
+        Serial.print("PIR: count= ");
+        Serial.println(count);
+      }
     }
-#endif
     return (count >= COUNT_THRESHOLD);
   }
   

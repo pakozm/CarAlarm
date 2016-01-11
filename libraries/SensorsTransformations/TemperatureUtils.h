@@ -29,9 +29,13 @@
 
 class TemperatureUtils {
 public:
-  static float convertToCelsius(int value, float MV=SensorUtils::MV) {
-    return SensorUtils::convertToMv(value,MV)/10.0f - 50.0f;
+  /// domain [-400,1500] which is -40C to 150C
+  static long convertToCelsius(int value, long MV=SensorUtils::Vcc) {
+    return SensorUtils::convertToMv(value,MV) - OFFSET;
   }
+  
+private:
+  static const long OFFSET = 500;
 };
 
 #endif // TEMP_UTILS_H

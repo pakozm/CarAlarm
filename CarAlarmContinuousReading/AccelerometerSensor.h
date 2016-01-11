@@ -56,12 +56,12 @@ public:
     scal(s_refs, 1.0f/(SETUP_NUM_SAMPLES-1));
     squareRoot(s_refs);
     
-#ifdef DEBUG
-    Serial.print("ACC Reference: mu=    ");
-    println(m_refs);
-    Serial.print("               sigma= ");
-    println(s_refs);
-#endif
+    if (Serial) {
+      Serial.print("ACC Reference: mu=    ");
+      println(m_refs);
+      Serial.print("               sigma= ");
+      println(s_refs);
+    }
 
     copy(high_refs, m_refs);
     copy(low_refs, m_refs);
@@ -78,56 +78,41 @@ public:
         activity=true;
       }
     }
-#ifdef DEBUG
-    if (activity) {
-      Serial.print("ACC: vec= ");
-      println(vec);
+    if (Serial) {
+      if (activity) {
+        Serial.print("ACC: vec= ");
+        println(vec);
+      }
     }
-#endif
     axpy(vec, -1.0f, m_refs);
     square(vec);
     float s = sum(vec);
-#ifdef DEBUG
-    if (s > threshold2) {
-      Serial.print("     sum= ");
-      Serial.println(s);
+    if (Serial) {
+      if (s > threshold2) {
+        Serial.print("     sum= ");
+        Serial.println(s);
+      }
     }
-#endif
-    return s > threshold2 || activity;
+    return s > threshold2 && activity;
   }
   
   virtual void reset() {}
   
   virtual const char * const getName() { return "ACC"; }
 
-  /**
-   * @note x:[-0.23,0.15]
-   */
-  float readAccX() const {
-    static const float min=-0.23, max=0.15;
-    static const float scale=1.0f/(0.5f*(max-min));
-    static const float offset=0.5f*max + 0.5f*min;
-    return (AccelerometerUtils::convertToG(analogRead(pins[0])) - offset)*scale;
+  long readAccX() const {
+    static const long min=-23, max=16;
+    return map(AccelerometerUtils::convertToG(analogRead(pins[0])), min, max, -100, 100);
   }
 
-  /**
-   * @note y:[-0.22,0.17]
-   */
-  float readAccY() const {
-    static const float min=-0.22, max=0.17;
-    static const float scale=1.0f/(0.5f*(max-min));
-    static const float offset=0.5f*max + 0.5f*min;
-    return (AccelerometerUtils::convertToG(analogRead(pins[1])) - offset)*scale;
+  long readAccY() const {
+    static const long min=-22, max=17;
+    return map(AccelerometerUtils::convertToG(analogRead(pins[1])), min, max, -100, 100);
   }
 
-  /**
-   * @note z:[-0.19,0.20]
-   */
-  float readAccZ() const {
-    static const float min=-0.19, max=0.20;
-    static const float scale=1.0f/(0.5f*(max-min));
-    static const float offset=0.5f*max + 0.5f*min;
-    return (AccelerometerUtils::convertToG(analogRead(pins[2])) - offset)*scale;
+  long readAccZ() const {
+    static const long min=-19, max=20;
+    return map(AccelerometerUtils::convertToG(analogRead(pins[2])), min, max, -100, 100);
   }
   
 private:
@@ -153,13 +138,11 @@ private:
     }
     Serial.println("");
   }
-  
-  void readData(int *vec) {
-    for (int j=0; j<3; ++j) vec[j] = analogRead(pins[j]);
-  }
 
   void readData(float *vec) {
-    for (int j=0; j<3; ++j) vec[j] = analogRead(pins[j]);
+    vec[0] = readAccX();
+    vec[1] = readAccY();
+    vec[2] = readAccZ();
   }
 
   void zeros(float *vec) {

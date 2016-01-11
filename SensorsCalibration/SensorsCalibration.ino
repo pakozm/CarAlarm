@@ -23,7 +23,9 @@
  */
 
 #include <JeeLib.h>
-ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
+ISR(WDT_vect) { 
+  Sleepy::watchdogEvent(); 
+} // Setup for low power waiting
 #include <SensorTransformations.h>
 
 const unsigned long PERIOD_SLEEP = 100; // 100 ms
@@ -37,9 +39,53 @@ const int PIR_PIN = 2;
 const int ACC_X_PIN = 2;
 const int ACC_Y_PIN = 1;
 const int ACC_Z_PIN = 0;
-const int TEMP_PIN  = 5;
+const int TMP_PIN  = 5;
 
 long Vcc; // in mili-volts
+
+long minX=-1, maxX=1;
+/**
+ * @note x:[-0.23,0.16]
+ */
+long readAccX()  {
+  long v = AccelerometerUtils::convertToG(analogRead(ACC_X_PIN));
+  if (v < minX) minX = v;
+  if (v > maxX) maxX = v;
+  return map(v, minX, maxX, -100, 100);
+}
+
+long minY=-1, maxY=1;
+/**
+ * @note y:[-0.22,0.17]
+ */
+long readAccY()  {
+  long v = AccelerometerUtils::convertToG(analogRead(ACC_Y_PIN));
+  if (v < minY) minY = v;
+  if (v > maxY) maxY = v;
+  return map(v, minY, maxY, -100, 100);
+}
+
+long minZ=-1, maxZ=1;
+/**
+ * @note z:[-0.19,0.22]
+ */
+long readAccZ()  {
+  long v = AccelerometerUtils::convertToG(analogRead(ACC_Z_PIN));
+  if (v < minZ) minZ = v;
+  if (v > maxZ) maxZ = v;
+  return map(v, minZ, maxZ, -100, 100);
+}
+
+
+long readTemperature()  {
+  static const long a  = 200, b  = 370;
+  static const long ah = 170, bh = 270;
+  analogRead(TMP_PIN);
+  delay(100);
+  Serial.println(TemperatureUtils::convertToCelsius(analogRead(TMP_PIN)));
+  return map(TemperatureUtils::convertToCelsius(analogRead(TMP_PIN)), ah, bh, a, b);
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -62,13 +108,17 @@ void buzzer_off() {
 /////////////////////////////////////////////////////////////////////////////
 
 void blink(unsigned long ms=100, unsigned long post_ms=200) {
-  led_on(); delay(ms);
-  led_off(); delay(post_ms);
+  led_on(); 
+  delay(ms);
+  led_off(); 
+  delay(post_ms);
 }
 
 void buzz(unsigned long ms=100, unsigned long post_ms=200) {
-  buzzer_on(); delay(ms);
-  buzzer_off(); delay(post_ms);
+  buzzer_on(); 
+  delay(ms);
+  buzzer_off(); 
+  delay(post_ms);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -79,7 +129,7 @@ void setup()
   pinMode(BUZ_PIN, OUTPUT);
   pinMode(PIR_PIN, INPUT);
   pinMode(13, OUTPUT);
-    
+
   digitalWrite(13, LOW);
   // initialization message
   digitalWrite(LED_PIN, HIGH);
@@ -90,28 +140,53 @@ void setup()
   // initialization delay
   delay(500);
   // test led and buzzer
-  blink(); blink(); buzz(); buzz();
+  blink(); 
+  blink(); 
+  buzz(); 
+  buzz();
   Vcc = SensorUtils::calibrateVcc();
 } // end SETUP
 
+float pow2(float x) { 
+  return x*x; 
+}
+
 void loop() {
   blink();
-  analogRead(ACC_X_PIN); delay(50);
-  float x_acc = AccelerometerUtils::convertToG(analogRead(ACC_X_PIN));
-  float y_acc = AccelerometerUtils::convertToG(analogRead(ACC_Y_PIN));
-  float z_acc = AccelerometerUtils::convertToG(analogRead(ACC_Z_PIN));
+  analogRead(ACC_X_PIN); 
   delay(50);
-  float temp  = TemperatureUtils::convertToCelsius(analogRead(TEMP_PIN));
+  long x_acc = readAccX();
+  long y_acc = readAccY();
+  long z_acc = readAccZ();
+  long sum = pow2(0.0f - x_acc) + pow2(0.0f - y_acc) + pow2(1.0f - z_acc);
+  long temp  = readTemperature();
   int pir = digitalRead(PIR_PIN);
-  Serial.print(Vcc); Serial.print(" ");
-  Serial.print(x_acc); Serial.print(" ");
-  Serial.print(y_acc); Serial.print(" ");
-  Serial.print(z_acc); Serial.print(" ");
-  Serial.print(temp); Serial.print(" ");
+  Serial.print(Vcc); 
+  Serial.print(" ");
+  Serial.print(x_acc); 
+  Serial.print(" ");
+  Serial.print(y_acc); 
+  Serial.print(" ");
+  Serial.print(z_acc); 
+  Serial.print(" ");
+  Serial.print(sum); 
+  Serial.print(" ");
+  Serial.print(temp); 
+  Serial.print(" ");
   Serial.println(pir);
+  
+  Serial.print("     ");
+  Serial.print(minX); Serial.print(" ");
+  Serial.print(maxX); Serial.print(" ");
+  Serial.print(minY); Serial.print(" ");
+  Serial.print(maxY); Serial.print(" ");
+  Serial.print(minZ); Serial.print(" ");
+  Serial.print(maxZ); Serial.println("");  
+  
   /*
     if (pir > 0) digitalWrite(BUZ_PIN, HIGH);
-    else digitalWrite(BUZ_PIN, LOW);
-  */
+   else digitalWrite(BUZ_PIN, LOW);
+   */
   delay(PERIOD_SLEEP);
 }
+

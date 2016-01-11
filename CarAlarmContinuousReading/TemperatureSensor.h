@@ -29,6 +29,7 @@
 
 // 10 samples lag to compare temperatures and compute gradient
 #define COUNT_TH 10
+#define ACT_COUNT_TH 10
 
 class TemperatureSensor : public AlarmSensorWithTimer {
 public:
@@ -44,51 +45,52 @@ public:
   }
   
   virtual void reset() {
-    temp_ref = readRawTemperature();
-    for (int i=0; i<COUNT_TH; ++i) temps[i] = temp_ref;
-    active   = false;
-    count    = 0;
+    temp_ref  = readTemperature();
+    active    = false;
+    count     = 0;
+    act_count = 0;
   }
   virtual const char * const getName() { return "Temp"; }
   
-  float readTemperature() const {
-    return temps[(count+1)%COUNT_TH];
-  }
-  
-  float readRawTemperature() const {
+  /**
+   *  sensor values: 17C..27C
+   *  real measure:  20C..37C
+   */
+  long readTemperature() const {
+    static const long in_a  = 170, in_b  = 270;
+    static const long out_a = 200, out_b = 370;
     analogRead(pin);
-    delay(50);
-    return TemperatureUtils::convertToCelsius(analogRead(pin));
+    delay(100);
+    return map(TemperatureUtils::convertToCelsius(analogRead(pin)), in_a, in_b, out_a, out_b);
   }
   
 private:
-  int   pin, count;
-  float temp_ref, temps[COUNT_TH];
+  int   pin, count, act_count;
+  long  temp_ref;
   bool  active;
-  static const float ALPHA    = 0.9;
-  static const float EPSILON  = 1.0;
+  static const long ALPHA    = 90; // 90%
+  static const long EPSILON  = 20; // 2C
 
   virtual bool timerStep() {
-    float raw      = readRawTemperature();
-    float cur      = readTemperature();
-    float abs_diff = fabsf(temp_ref - cur);
-#ifdef DEBUG
-    Serial.print("Temp: ref= ");
-    Serial.println(temp_ref);
-    Serial.print("      cur= ");
-    Serial.println(cur);
-    Serial.print("      raw= ");
-    Serial.println(raw);
-#endif
-    temp_ref = ALPHA*temp_ref + (1-ALPHA)*raw;
-    active |= (count>COUNT_TH) && (abs_diff > EPSILON);
+    long cur      = readTemperature();
+    long abs_diff = abs(temp_ref - cur);
+    if (Serial) {
+      Serial.print("Temp: ref= ");
+      Serial.println(temp_ref);
+      Serial.print("      cur= ");
+      Serial.println(cur);
+    }
+    temp_ref = (ALPHA*temp_ref)/100 + ((100-ALPHA)*cur)/100;
+    if ((count>COUNT_TH) && (abs_diff > EPSILON)) ++act_count;
+    active |= act_count > ACT_COUNT_TH;
     count++;
-    temps[count%COUNT_TH] = temp_ref;
     // true forces to register again the timer
     return true;
   }
 };
 
 #undef COUNT_TH
+#undef ACT_COUNT_TH
 
 #endif // TEMPERATURE_SENSOR_H
+

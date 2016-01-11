@@ -27,9 +27,9 @@
 
 class SensorUtils {
 public:
-  /// converts 0..1023 values to mili-volts (0V..5V)
-  static float convertToMv(int value, float MV=SensorUtils::MV) {
-    return value*(MV/1023.0f);
+  /// converts 0..1023 values to mili-volts (0mV..5000mV)
+  static long convertToMv(int value, long MV=SensorUtils::Vcc) {
+    return (value*MV)/1023;
   }
   
   // from: http://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/
@@ -58,13 +58,11 @@ public:
     result = REF_CAL / result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
 
     Vcc = result;
-    MV  = static_cast<float>(result);
     
     return result; // Vcc in millivolts
   }
 
   static long Vcc;
-  static float MV;
 };
 
 #endif // SENSOR_UTILS_H

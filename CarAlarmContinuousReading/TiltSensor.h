@@ -61,10 +61,10 @@ private:
     int val = digitalRead(pin);
     if (val == HIGH) ++count;
     else count = 0;
-#ifdef DEBUG
-    Serial.print("Tilt: count= ");
-    Serial.println(count);
-#endif
+    if (Serial) {
+      Serial.print("Tilt: count= ");
+      Serial.println(count);
+    }
     active |= (count >= COUNT_THRESHOLD);
     // true forces to register again the timer
     return true;

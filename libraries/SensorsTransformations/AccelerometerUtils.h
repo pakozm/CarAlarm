@@ -28,13 +28,15 @@
 
 class AccelerometerUtils {
 public:
-  static float convertToG(int value, float MV=SensorUtils::MV) {
-    return (SensorUtils::convertToMv(value,MV) - ZEROG) * SCALE;
+  /// domain [-300,300] which is -3G to 3G
+  static long convertToG(int value, long MV=SensorUtils::Vcc) {
+    return ((SensorUtils::convertToMv(value,MV) - ZEROG) * MUL) / SCALE;
   }
 
 private:
-  static const float ZEROG = 1650;
-  static const float SCALE = 1.0f/1650.0f;
+  static const long ZEROG = 1650;
+  static const long MUL   =  100;
+  static const long SCALE = 1650;
 };
 
 #endif // ACC_UTILS_H

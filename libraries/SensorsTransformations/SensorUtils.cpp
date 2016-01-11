@@ -25,4 +25,3 @@
 #include "SensorUtils.h"
 
 long SensorUtils::Vcc = 5000;
-float SensorUtils::MV = 5000.0f;
