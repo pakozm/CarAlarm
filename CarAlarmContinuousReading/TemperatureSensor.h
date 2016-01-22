@@ -33,8 +33,10 @@
 
 class TemperatureSensor : public AlarmSensorWithTimer {
 public:
-  TemperatureSensor(int pin) : pin(pin) {}
+  TemperatureSensor(int pin, long eps) : pin(pin), epsilon(eps) {}
 
+  void setEpsilon(long eps) { epsilon = eps; }
+  
   virtual void setup() {
     pinMode(pin, INPUT);
     reset();
@@ -68,9 +70,9 @@ private:
   int   pin, count, act_count;
   long  temp_ref;
   bool  active;
-  static const long ALPHA    = 90; // 90%
-  static const long EPSILON  = 20; // 2C
-
+  static const long ALPHA = 90; // 90%
+  long epsilon; // degrees*10
+  
   virtual bool timerStep() {
     long cur      = readTemperature();
     long abs_diff = abs(temp_ref - cur);
@@ -81,7 +83,7 @@ private:
       Serial.println(cur);
     }
     temp_ref = (ALPHA*temp_ref)/100 + ((100-ALPHA)*cur)/100;
-    if ((count>COUNT_TH) && (abs_diff > EPSILON)) ++act_count;
+    if ((count>COUNT_TH) && (abs_diff > epsilon)) ++act_count;
     active |= act_count > ACT_COUNT_TH;
     count++;
     // true forces to register again the timer

@@ -38,6 +38,10 @@ public:
     zeros(s_refs);
   }
   
+  void setThreshold(float th) {
+    threshold2 = th * th;
+  }
+  
   virtual void setup() {
     float samples[SETUP_NUM_SAMPLES][3];
     for (int i=0; i<SETUP_NUM_SAMPLES; ++i) {

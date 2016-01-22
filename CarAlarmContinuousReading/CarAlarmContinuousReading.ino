@@ -23,43 +23,45 @@
  */
 
 /*******************************************************************************
-  Summary:
-  
-  This alarm uses different sensors to detect activity inside the car. When any
-  of them sense activity, the alarm will start making noise for a particular
-  duration.
-  
-  The alarm has a START_DELAY time which allow the user to arm the alarm and
-  leave the car. Once this delay passes, the alarm executes a routine every
-  PERIOD_SLEEP looking for activity in the sensors. When activity is sensed, a
-  delay of ALARM_DELAY is used to allow manual disconnection of the alarm. After
-  this time the alarm starts making noise during ALARM_DURATION time. After this
-  time the alarm waits REARM_DELAY before rearming alarm again.
-
-  
-  Setup procedure: depending on alarm battery level the starting procedure
-  changes, indicating if everything is ok to work, if the battery needs to be
-  replaced/charged, or if battery is so low that the system won't run:
-  
-  1. Correct function is advertised by BATTERY_OK_REPETITIONS short buzzes.
-  
-  2. Low battery is advertised by BATTERY_ALERT_REPETITIONS long buzzes, but the
-     alarm stills running.
-
-  3. Very low battery is advertised by BATTERY_ERROR_REPETITIONS short buzzes
-     and the system won't run.
-  
-  
-  Change Log:
-  v0.5 2016/01/11 Using integer math for sensors.
-  v0.4 2016/01/03 Using a timer scheduler.
-  v0.3 2016/01/02 Added battery level indications at start.
-  v0.2 2016/01/02 Added readVcc() routine.
-  v0.1 2016/01/01 First draft: buzzer, PIR and accelerometer.
-*******************************************************************************/
+ * Summary:
+ * 
+ * This alarm uses different sensors to detect activity inside the car. When any
+ * of them sense activity, the alarm will start making noise for a particular
+ * duration.
+ * 
+ * The alarm has a START_DELAY time which allow the user to arm the alarm and
+ * leave the car. Once this delay passes, the alarm executes a routine every
+ * PERIOD_SLEEP looking for activity in the sensors. When activity is sensed, a
+ * delay of ALARM_DELAY is used to allow manual disconnection of the alarm. After
+ * this time the alarm starts making noise during ALARM_DURATION time. After this
+ * time the alarm waits REARM_DELAY before rearming alarm again.
+ * 
+ * 
+ * Setup procedure: depending on alarm battery level the starting procedure
+ * changes, indicating if everything is ok to work, if the battery needs to be
+ * replaced/charged, or if battery is so low that the system won't run:
+ * 
+ * 1. Correct function is advertised by BATTERY_OK_REPETITIONS short buzzes.
+ * 
+ * 2. Low battery is advertised by BATTERY_ALERT_REPETITIONS long buzzes, but the
+ * alarm stills running.
+ * 
+ * 3. Very low battery is advertised by BATTERY_ERROR_REPETITIONS short buzzes
+ * and the system won't run.
+ * 
+ * 
+ * Change Log:
+ * v0.5 2016/01/11 Using integer math for sensors.
+ * v0.4 2016/01/03 Using a timer scheduler.
+ * v0.3 2016/01/02 Added battery level indications at start.
+ * v0.2 2016/01/02 Added readVcc() routine.
+ * v0.1 2016/01/01 First draft: buzzer, PIR and accelerometer.
+ *******************************************************************************/
 
 #include <JeeLib.h>
-ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup for low power waiting
+ISR(WDT_vect) { 
+  Sleepy::watchdogEvent(); 
+} // Setup for low power waiting
 #include <TaskTimer.h>
 #include <SensorTransformations.h>
 
@@ -99,25 +101,29 @@ const int BATTERY_ALERT_DURATION    = 500; // 0.5 seconds
 const int BATTERY_ERROR_REPETITIONS = 10;
 const int BATTERY_ERROR_DURATION    = 100; // 100 ms
 
-const long VCC_ALERT = 4000; // mili-volts
-const long VCC_ERROR = 3000; // mili-volts
+const long VCC_ALERT = 4600; // mili-volts
+const long VCC_ERROR = 4300; // mili-volts
 
 const int NUM_SENSORS = 3;
 const int MAX_TASKS = 10; // maximum number of tasks for Scheduler
 
 // digital pins connection
+const int LED_PIN = 9;
+const int SRN_PIN = 10;
 const int BUZ_PIN = 11;
-const int LED_PIN = 12;
-const int PIR_PIN = 2;
+const int PIR_PIN = 12;
 
 // analogic pins connection
-const int ACC_X_PIN = 2;
-const int ACC_Y_PIN = 1;
-const int ACC_Z_PIN = 0;
-const int TMP_PIN   = 5;
+const int ACC_POT_PIN = 5;
+const int ACC_X_PIN   = 4;
+const int ACC_Y_PIN   = 3;
+const int ACC_Z_PIN   = 2;
+const int TMP_POT_PIN = 1;
+const int TMP_PIN     = 0;
 
-// accelerometer threshold
-const float ACC_TH = 10.0f;
+// default thresholds
+const float DEF_ACC_TH = 10.0f;
+const long DEF_TMP_EPS = 20;   // 2C
 
 long Vcc; // in mili-volts
 TaskTimerWithHeap<MAX_TASKS> scheduler;
@@ -125,13 +131,14 @@ id_type alarm_task, blink_task, calibration_task;
 
 ///////////////////////////////////////////////////////////////////////////
 
-AccelerometerSensor acc_sensor(ACC_X_PIN, ACC_Y_PIN, ACC_Z_PIN, ACC_TH);
+AccelerometerSensor acc_sensor(ACC_X_PIN, ACC_Y_PIN, ACC_Z_PIN, DEF_ACC_TH);
 PIRSensor pir_sensor(PIR_PIN);
-TemperatureSensor temp_sensor(TMP_PIN);
+TemperatureSensor temp_sensor(TMP_PIN, DEF_TMP_EPS);
 
-AlarmSensor *sensors[NUM_SENSORS] = { &acc_sensor,
-                                      &pir_sensor,
-                                      &temp_sensor };
+AlarmSensor *sensors[NUM_SENSORS] = { 
+  &acc_sensor,
+  &pir_sensor,
+  &temp_sensor };
 
 template<typename T> void print(const T &obj);
 template<typename T> void println(const T &obj);
@@ -171,16 +178,28 @@ void buzzer_off() {
   digitalWrite(BUZ_PIN, LOW);
 }
 
+void siren_on() {
+  digitalWrite(SRN_PIN, HIGH);
+}
+
+void siren_off() {
+  digitalWrite(SRN_PIN, LOW);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 
 void blink(unsigned long ms=100, unsigned long post_ms=200) {
-  led_on(); sleep(ms);
-  led_off(); sleep(post_ms);
+  led_on(); 
+  sleep(ms);
+  led_off(); 
+  sleep(post_ms);
 }
 
 void buzz(unsigned long ms=100, unsigned long post_ms=200) {
-  buzzer_on(); sleep(ms);
-  buzzer_off(); sleep(post_ms);
+  buzzer_on(); 
+  sleep(ms);
+  buzzer_off(); 
+  sleep(post_ms);
 }
 
 void alarmOn() {
@@ -191,15 +210,17 @@ void alarmOn() {
   sleep(ALARM_DELAY);
   print_seconds("          buzzing during", ALARM_DURATION);
   led_off();
-  
+
   unsigned long t0 = millis();
   while(millis() - t0 < ALARM_DURATION) {
+    siren_on();
     led_on();
     buzz(1000, 0);
     led_off();
+    siren_off();
     sleep(1000);
   }
-  
+
   blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
   println("ALARM OFF");
 }
@@ -256,15 +277,16 @@ void alarm_check(void *)
   else {
     /*
       println("No activity detected");
-      print_seconds("ALARM check in", PERIOD_SLEEP);
-    */
+     print_seconds("ALARM check in", PERIOD_SLEEP);
+     */
     alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
   }
 }
 
 void calibrate_timer(void *) {
   long Vcc = SensorUtils::calibrateVcc();
-  print("Vcc= "); println(Vcc);
+  print("Vcc= "); 
+  println(Vcc);
   calibration_task = scheduler.timer(CALIBRATION_DELAY, calibrate_timer);
 }
 
@@ -274,22 +296,49 @@ void setup()
 {
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUZ_PIN, OUTPUT);
+  pinMode(SRN_PIN, OUTPUT);
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW);
   digitalWrite(LED_PIN, HIGH);
 
   // initialization message
   Serial.begin(9600);
-  while (!Serial) {}  // wait for Leonardo
+  while (!Serial) {
+  }  // wait for Leonardo
   print("CarAlarmContinuousReading V");
   println(VERSION*0.1f);
   println("Francisco Zamora-Martinez (2016)");
   digitalWrite(LED_PIN, LOW);
 
   Vcc = SensorUtils::calibrateVcc();
-  print("Vcc= "); println(Vcc);
+  print("Vcc=     "); 
+  println(Vcc);
   if (check_failure_Vcc()) return;
-  
+
+  analogRead(TMP_POT_PIN); 
+  delay(50);
+  long acc_raw = analogRead(TMP_POT_PIN);
+
+  analogRead(ACC_POT_PIN); 
+  delay(50);
+  long tmp_raw = analogRead(ACC_POT_PIN);
+
+  float acc_th = 2.0f + (acc_raw/1023.0f)*18.0f;
+  long tmp_eps = map(tmp_raw, 0, 1023, 10, 80);
+
+  acc_sensor.setThreshold(acc_th);
+  temp_sensor.setEpsilon(tmp_eps);
+
+  print("ACC RAW= "); 
+  println(acc_raw);
+  print("TMP RAW= "); 
+  println(tmp_raw);
+
+  print("ACC TH=  "); 
+  println(acc_th);
+  print("TMP EPS= "); 
+  println(tmp_eps);
+
   print_seconds("START.....wait ", START_SLEEP);
   sleep(START_SLEEP);
   blink();
@@ -301,12 +350,12 @@ void setup()
 
   // register timer-based sensors
   temp_sensor.registerTimer(&scheduler, TEMPERATURE_PERIOD);
-  
+
   // schedule all required tasks
   blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
   alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
   calibration_task = scheduler.timer(CALIBRATION_DELAY, calibrate_timer);
-  
+
 } // end SETUP
 
 void loop() {
@@ -319,3 +368,4 @@ void loop() {
     sleep(100000);
   }
 }
+
