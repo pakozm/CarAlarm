@@ -323,8 +323,8 @@ void setup()
   delay(50);
   long tmp_raw = analogRead(ACC_POT_PIN);
 
-  float acc_th = 2.0f + (acc_raw/1023.0f)*18.0f;
-  long tmp_eps = map(tmp_raw, 0, 1023, 10, 80);
+  float acc_th = (acc_raw/1023.0f)*20.0f;
+  long tmp_eps = map(tmp_raw, 0, 1023, 0, 80);
 
   acc_sensor.setThreshold(acc_th);
   temp_sensor.setEpsilon(tmp_eps);
