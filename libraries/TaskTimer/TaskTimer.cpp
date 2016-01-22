@@ -32,7 +32,7 @@ extern void delay(unsigned long ms);
 void sleep(time_type ms) {
   if (ms > 0) {
 #ifdef JeeLib_h
-    if (ms < 100) delay(ms);
+    if (ms < 50) delay(ms);
     else Sleepy::loseSomeTime(ms);
 #else
 #warning "Please, include JeeLib.h in your sketch source code."
