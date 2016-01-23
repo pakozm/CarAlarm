@@ -47,7 +47,9 @@ void setup()
 } // end SETUP
 
 void loop() {
+  analogRead(POT_0_PIN); delay(50);
   long pot0 = analogRead(POT_0_PIN);
+  analogRead(POT_1_PIN); delay(50);
   long pot1 = analogRead(POT_1_PIN);
   Serial.print(Vcc);
   Serial.print(" ");
