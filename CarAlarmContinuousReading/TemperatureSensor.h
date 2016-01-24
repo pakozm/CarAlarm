@@ -59,11 +59,12 @@ public:
    *  real measure:  20C..37C
    */
   long readTemperature() const {
-    static const long in_a  = 170, in_b  = 270;
-    static const long out_a = 200, out_b = 370;
-    analogRead(pin);
-    delay(100);
-    return map(TemperatureUtils::convertToCelsius(analogRead(pin)), in_a, in_b, out_a, out_b);
+      // static const long in_a  = 170, in_b  = 270;
+      // static const long out_a = 200, out_b = 370;
+      analogRead(pin);
+      delay(50);
+      // return map(TemperatureUtils::convertToCelsius(analogRead(pin)), in_a, in_b, out_a, out_b);
+      return TemperatureUtils::convertToCelsius(analogRead(pin));
   }
   
 private:
