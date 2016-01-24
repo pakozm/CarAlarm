@@ -303,8 +303,7 @@ void setup()
 
   // initialization message
   Serial.begin(9600);
-  while (!Serial) {
-  }  // wait for Leonardo
+  while (!Serial); // wait for Leonardo
   print("CarAlarmContinuousReading V");
   println(VERSION*0.1f);
   println("Francisco Zamora-Martinez (2016)");
@@ -368,4 +367,3 @@ void loop() {
     sleep(100000);
   }
 }
-
