@@ -36,9 +36,9 @@ const int LED_PIN = 12;
 const int PIR_PIN = 2;
 
 // analogic pins connection
-const int ACC_X_PIN = 2;
-const int ACC_Y_PIN = 1;
-const int ACC_Z_PIN = 0;
+const int ACC_X_PIN = 4;
+const int ACC_Y_PIN = 3;
+const int ACC_Z_PIN = 2;
 const int TMP_PIN  = 5;
 
 long Vcc; // in mili-volts

@@ -33,7 +33,7 @@ public:
   }
   
   // from: http://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/
-  static long calibrateVcc(long REF_CAL = 1125300L) {
+  static long calibrateVcc(long REF_CAL = 1155000L) { // 1125300L) {
     // Read 1.1V reference against AVcc
     // set the reference to Vcc and the measurement to the internal 1.1V reference
 #if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)

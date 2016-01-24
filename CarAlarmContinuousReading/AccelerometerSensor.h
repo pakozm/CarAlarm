@@ -105,17 +105,17 @@ public:
   virtual const char * const getName() { return "ACC"; }
 
   long readAccX() const {
-    static const long min=-23, max=16;
+    static const long min=-20, max=19;
     return map(AccelerometerUtils::convertToG(analogRead(pins[0])), min, max, -100, 100);
   }
 
   long readAccY() const {
-    static const long min=-22, max=17;
+    static const long min=-20, max=20;
     return map(AccelerometerUtils::convertToG(analogRead(pins[1])), min, max, -100, 100);
   }
 
   long readAccZ() const {
-    static const long min=-19, max=20;
+    static const long min=-17, max=23;
     return map(AccelerometerUtils::convertToG(analogRead(pins[2])), min, max, -100, 100);
   }
   

@@ -28,8 +28,6 @@
 const int POT_0_PIN = 0;
 const int POT_1_PIN = 1;
 
-long Vcc; // in mili-volts
-
 ///////////////////////////////////////////////////////////////////////////////
 
 void setup()
@@ -43,10 +41,10 @@ void setup()
   Serial.println("# Francisco Zamora-Martinez (2016)");
   // initialization delay
   delay(500);
-  Vcc = SensorUtils::calibrateVcc();
 } // end SETUP
 
 void loop() {
+  long Vcc = SensorUtils::calibrateVcc();
   analogRead(POT_0_PIN); delay(50);
   long pot0 = analogRead(POT_0_PIN);
   analogRead(POT_1_PIN); delay(50);
