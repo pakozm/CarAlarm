@@ -105,17 +105,17 @@ public:
   virtual const char * const getName() { return "ACC"; }
 
   long readAccX() const {
-    static const long min=-20, max=19;
+    static const long min=-20, max=23;
     return map(AccelerometerUtils::convertToG(analogRead(pins[0])), min, max, -100, 100);
   }
 
   long readAccY() const {
-    static const long min=-20, max=20;
+    static const long min=-18, max=24;
     return map(AccelerometerUtils::convertToG(analogRead(pins[1])), min, max, -100, 100);
   }
 
   long readAccZ() const {
-    static const long min=-17, max=23;
+    static const long min=-15, max=27;
     return map(AccelerometerUtils::convertToG(analogRead(pins[2])), min, max, -100, 100);
   }
   
@@ -124,7 +124,7 @@ private:
   float m_refs[3], s_refs[3], low_refs[3], high_refs[3];
   float threshold2;
   static const int SETUP_NUM_SAMPLES=30;
-  static const unsigned long SETUP_SAMPLE_DELAY=50;
+  static const unsigned long SETUP_SAMPLE_DELAY=100;
   
   template<typename T>
   void print(const T *vec) {
@@ -183,3 +183,4 @@ private:
 };
 
 #endif // ACC_SENSOR_H
+

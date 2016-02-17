@@ -21,7 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-
+#include <avr/sleep.h>
+#include <avr/wdt.h>
+#include <avr/power.h>
+#include <avr/interrupt.h>
 #include <JeeLib.h>
 #include "TaskTimer.h"
 
@@ -32,8 +35,12 @@ extern void delay(unsigned long ms);
 void sleep(time_type ms) {
   if (ms > 0) {
 #ifdef JeeLib_h
-    if (ms < 50) delay(ms);
-    else Sleepy::loseSomeTime(ms);
+    if (ms < 30) {
+      delay(ms);
+    }
+    else {
+      Sleepy::loseSomeTime(ms);
+    }
 #else
 #warning "Please, include JeeLib.h in your sketch source code."
     delay(ms);

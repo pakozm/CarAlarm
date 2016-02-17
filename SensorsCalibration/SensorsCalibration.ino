@@ -32,14 +32,14 @@ const unsigned long PERIOD_SLEEP = 100; // 100 ms
 
 // digital pins connection
 const int BUZ_PIN = 11;
-const int LED_PIN = 12;
-const int PIR_PIN = 2;
+const int LED_PIN = 9;
+const int PIR_PIN = 12;
 
 // analogic pins connection
-const int ACC_X_PIN = 4;
+const int ACC_X_PIN = 2;
 const int ACC_Y_PIN = 3;
-const int ACC_Z_PIN = 2;
-const int TMP_PIN  = 5;
+const int ACC_Z_PIN = 4;
+const int TMP_PIN  = 0;
 
 long Vcc; // in mili-volts
 
@@ -78,12 +78,14 @@ long readAccZ()  {
 
 
 long readTemperature()  {
-  static const long a  = 200, b  = 370;
-  static const long ah = 170, bh = 270;
-  analogRead(TMP_PIN);
-  delay(100);
-  Serial.println(TemperatureUtils::convertToCelsius(analogRead(TMP_PIN)));
-  return map(TemperatureUtils::convertToCelsius(analogRead(TMP_PIN)), ah, bh, a, b);
+  //static const long in_a  = 170, in_b  = 300;
+  //static const long out_a = 200, out_b = 330;
+  static const long in_a  = 0, in_b  = 100;
+  static const long out_a = 0, out_b = 100;
+  analogRead(0);
+  delay(50);
+  //return map(TemperatureUtils::convertToCelsius(analogRead(0)), in_a, in_b, out_a, out_b);
+  return TemperatureUtils::convertToCelsius(analogRead(0));
 }
 
 

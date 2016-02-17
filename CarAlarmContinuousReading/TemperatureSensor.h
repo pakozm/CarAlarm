@@ -97,3 +97,4 @@ private:
 
 #endif // TEMPERATURE_SENSOR_H
 
+

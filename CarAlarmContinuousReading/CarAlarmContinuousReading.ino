@@ -51,6 +51,7 @@
  * 
  * 
  * Change Log:
+ * v0.6 2016/02/23 Fixing REF_CAL for EcoDuino PCB shield.
  * v0.5 2016/01/11 Using integer math for sensors.
  * v0.4 2016/01/03 Using a timer scheduler.
  * v0.3 2016/01/02 Added battery level indications at start.
@@ -65,14 +66,15 @@ ISR(WDT_vect) {
 #include <TaskTimer.h>
 #include <SensorTransformations.h>
 
-#define DEBUG
+// #define DEBUG
+
 #include "AlarmSensor.h"
 #include "AccelerometerSensor.h"
 #include "PIRSensor.h"
 #include "TemperatureSensor.h"
-#include "TiltSensor.h"
 
-const byte VERSION = 05; // firmware version divided by 10 e,g 16 = V1.6
+const byte VERSION = 06; // firmware version divided by 10 e,g 16 = V1.6
+const long REF_CAL = 1126300L;
 // WARNING: should be PERIOD_SLEEP >= 100
 const unsigned long PERIOD_SLEEP =  1000; // 1000 ms
 const unsigned long BLINK_DELAY  = 10000; // 10 seconds
@@ -212,14 +214,14 @@ void alarmOn() {
   led_off();
 
   unsigned long t0 = millis();
+  siren_on();
   while(millis() - t0 < ALARM_DURATION) {
-    siren_on();
     led_on();
-    buzz(1000, 0);
+    sleep(1000);
     led_off();
-    siren_off();
     sleep(1000);
   }
+  siren_off();
 
   blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
   println("ALARM OFF");
@@ -227,24 +229,34 @@ void alarmOn() {
 
 bool check_failure_Vcc() {
   if (Vcc < VCC_ERROR) {
-    digitalWrite(LED_PIN, HIGH);
     for (int i=0; i<BATTERY_ERROR_REPETITIONS; ++i) {
+#ifdef DEBUG
       buzz(BATTERY_ERROR_DURATION);
+#else
+      siren_on(); sleep(50); siren_off(); sleep(100);
+#endif
     }
-    digitalWrite(LED_PIN, LOW);
     return true;
   }
   else if (Vcc < VCC_ALERT) {
     for (int i=0; i<BATTERY_ALERT_REPETITIONS; ++i) {
+#ifdef DEBUG
       blink(100, 0);
       buzz(BATTERY_ALERT_DURATION, 0);
+#else      
+      siren_on(); sleep(50); siren_off(); sleep(100);
+#endif
     }
   }
   else {
     // indicates correct function by buzzing and blinking
     for (int i=0; i<BATTERY_OK_REPETITIONS; ++i) {
+#ifdef DEBUG
       blink(100, 0);
       buzz(BATTERY_OK_DURATION, 0);
+#else
+      siren_on(); sleep(50); siren_off(); sleep(100);
+#endif 
     }
   }
   return false;
@@ -284,10 +296,16 @@ void alarm_check(void *)
 }
 
 void calibrate_timer(void *) {
-  long Vcc = SensorUtils::calibrateVcc();
+  long Vcc = SensorUtils::calibrateVcc(REF_CAL);
   print("Vcc= "); 
   println(Vcc);
   calibration_task = scheduler.timer(CALIBRATION_DELAY, calibrate_timer);
+}
+
+long readPotentiometer(int pin) {
+  analogRead(pin);
+  delay(50);
+  return analogRead(pin);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -300,27 +318,23 @@ void setup()
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW);
   digitalWrite(LED_PIN, HIGH);
-
   // initialization message
   Serial.begin(9600);
+  delay(100);
   while (!Serial); // wait for Leonardo
   print("CarAlarmContinuousReading V");
   println(VERSION*0.1f);
   println("Francisco Zamora-Martinez (2016)");
   digitalWrite(LED_PIN, LOW);
 
-  Vcc = SensorUtils::calibrateVcc();
+  Vcc = SensorUtils::calibrateVcc(REF_CAL);
   print("Vcc=     "); 
   println(Vcc);
   if (check_failure_Vcc()) return;
 
-  analogRead(TMP_POT_PIN); 
-  delay(50);
-  long acc_raw = analogRead(TMP_POT_PIN);
+  long acc_raw = readPotentiometer(TMP_POT_PIN);
 
-  analogRead(ACC_POT_PIN); 
-  delay(50);
-  long tmp_raw = analogRead(ACC_POT_PIN);
+  long tmp_raw = readPotentiometer(ACC_POT_PIN);
 
   float acc_th = (acc_raw/1023.0f)*20.0f;
   long tmp_eps = map(tmp_raw, 0, 1023, 0, 80);
@@ -367,3 +381,4 @@ void loop() {
     sleep(100000);
   }
 }
+
