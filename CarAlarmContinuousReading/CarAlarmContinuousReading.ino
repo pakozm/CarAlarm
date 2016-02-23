@@ -74,7 +74,7 @@ ISR(WDT_vect) {
 #include "TemperatureSensor.h"
 
 const byte VERSION = 06; // firmware version divided by 10 e,g 16 = V1.6
-const long REF_CAL = 1126300L;
+const long REF_CAL = 1120000L;
 // WARNING: should be PERIOD_SLEEP >= 100
 const unsigned long PERIOD_SLEEP =  1000; // 1000 ms
 const unsigned long BLINK_DELAY  = 10000; // 10 seconds
