@@ -216,6 +216,9 @@ void alarmAlert() {
   unsigned long t0 = millis();
   siren_on();
   while(millis() - t0 < ALARM_DURATION) {
+#ifdef DEBUG
+    buzz();
+#endif
     led_on();
     sleep(1000);
     led_off();
