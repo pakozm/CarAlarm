@@ -32,6 +32,7 @@ public:
   
   virtual void setup() {
     pinMode(pin, INPUT);
+    reset();
   }
   
   virtual bool checkActivity() {
@@ -47,7 +48,9 @@ public:
     return (count >= COUNT_THRESHOLD);
   }
   
-  virtual void reset() {}
+  virtual void reset() {
+    count = 0;
+  }
   
   virtual const char * const getName() { return "PIR"; }
   

@@ -21,11 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
+#ifndef PC_TEST
 #include <avr/sleep.h>
 #include <avr/wdt.h>
 #include <avr/power.h>
 #include <avr/interrupt.h>
 #include <JeeLib.h>
+#endif
 #include "TaskTimer.h"
 
 #ifndef Arduino_h

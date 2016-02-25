@@ -43,34 +43,7 @@ public:
   }
   
   virtual void setup() {
-    float samples[SETUP_NUM_SAMPLES][3];
-    for (int i=0; i<SETUP_NUM_SAMPLES; ++i) {
-      readData(samples[i]);
-      axpy(m_refs, 1.0f, samples[i]);
-      delay(SETUP_SAMPLE_DELAY);
-    }
-    scal(m_refs, 1.0f/SETUP_NUM_SAMPLES);
-    float dif[3];
-    for (int i=0; i<SETUP_NUM_SAMPLES; ++i) {
-      copy(dif, samples[i]);
-      axpy(dif, -1.0f, m_refs);
-      square(dif);
-      axpy(s_refs, 1.0f, dif);
-    }
-    scal(s_refs, 1.0f/(SETUP_NUM_SAMPLES-1));
-    squareRoot(s_refs);
-    
-    if (Serial) {
-      Serial.print("ACC Reference: mu=    ");
-      println(m_refs);
-      Serial.print("               sigma= ");
-      println(s_refs);
-    }
-
-    copy(high_refs, m_refs);
-    copy(low_refs, m_refs);
-    axpy(high_refs, 2.0f, s_refs);
-    axpy(low_refs, -2.0f, s_refs);
+    reset();
   }
   
   virtual bool checkActivity() {
@@ -100,7 +73,36 @@ public:
     return s > threshold2 && activity;
   }
   
-  virtual void reset() {}
+  virtual void reset() {
+    float samples[SETUP_NUM_SAMPLES][3];
+    for (int i=0; i<SETUP_NUM_SAMPLES; ++i) {
+      readData(samples[i]);
+      axpy(m_refs, 1.0f, samples[i]);
+      delay(SETUP_SAMPLE_DELAY);
+    }
+    scal(m_refs, 1.0f/SETUP_NUM_SAMPLES);
+    float dif[3];
+    for (int i=0; i<SETUP_NUM_SAMPLES; ++i) {
+      copy(dif, samples[i]);
+      axpy(dif, -1.0f, m_refs);
+      square(dif);
+      axpy(s_refs, 1.0f, dif);
+    }
+    scal(s_refs, 1.0f/(SETUP_NUM_SAMPLES-1));
+    squareRoot(s_refs);
+    
+    if (Serial) {
+      Serial.print("ACC Reference: mu=    ");
+      println(m_refs);
+      Serial.print("               sigma= ");
+      println(s_refs);
+    }
+
+    copy(high_refs, m_refs);
+    copy(low_refs, m_refs);
+    axpy(high_refs, 2.0f, s_refs);
+    axpy(low_refs, -2.0f, s_refs);
+  }
   
   virtual const char * const getName() { return "ACC"; }
 

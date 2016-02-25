@@ -241,9 +241,9 @@ time_type TaskTimerWithHeap<MAX>::computeSleepTime(id_type id) const {
 
 template<char MAX>
 void TaskTimerWithHeap<MAX>::run(id_type id) {
-  const task_t &task = tasks[id];
-  task.func(task.arg);
+  task_t task = tasks[id];
   cancel(id);
+  task.func(task.arg);
 }
 
 template<char MAX>

@@ -51,6 +51,7 @@
  * 
  * 
  * Change Log:
+ * v0.7 2016/02/25 Improvements in alarm reset and TaskTimer run method.
  * v0.6 2016/02/23 Fixing REF_CAL for EcoDuino PCB shield.
  * v0.5 2016/01/11 Using integer math for sensors.
  * v0.4 2016/01/03 Using a timer scheduler.
@@ -58,6 +59,7 @@
  * v0.2 2016/01/02 Added readVcc() routine.
  * v0.1 2016/01/01 First draft: buzzer, PIR and accelerometer.
  *******************************************************************************/
+#define CAR_ALARM_INO
 
 #include <JeeLib.h>
 ISR(WDT_vect) { 
@@ -73,7 +75,7 @@ ISR(WDT_vect) {
 #include "PIRSensor.h"
 #include "TemperatureSensor.h"
 
-const byte VERSION = 06; // firmware version divided by 10 e,g 16 = V1.6
+const byte VERSION = 07; // firmware version divided by 10 e,g 16 = V1.6
 const long REF_CAL = 1120000L;
 // WARNING: should be PERIOD_SLEEP >= 100
 const unsigned long PERIOD_SLEEP =  1000; // 1000 ms
@@ -204,9 +206,7 @@ void buzz(unsigned long ms=100, unsigned long post_ms=200) {
   sleep(post_ms);
 }
 
-void alarmOn() {
-  scheduler.cancel(blink_task);
-
+void alarmAlert() {
   led_on();
   print_seconds("ALARM ON: delaying", ALARM_DELAY);
   sleep(ALARM_DELAY);
@@ -222,8 +222,7 @@ void alarmOn() {
     sleep(1000);
   }
   siren_off();
-
-  blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
+  
   println("ALARM OFF");
 }
 
@@ -267,6 +266,13 @@ void blink_and_repeat(void *) {
   blink_task = scheduler.timer(BLINK_DELAY, blink_and_repeat);
 }
 
+void rearm_alarm(void *) {
+  for (int i=0; i<NUM_SENSORS; ++i) {
+    sensors[i]->reset();
+  }
+  alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
+}
+
 void alarm_check(void *)
 {
   int i, activity_detected=0;
@@ -279,18 +285,15 @@ void alarm_check(void *)
     }
   }
   if (activity_detected) {
-    alarmOn();
-    for (int i=0; i<NUM_SENSORS; ++i) {
-      sensors[i]->reset();
-    }
+    alarmAlert();
     print_seconds("ALARM rearm in", REARM_DELAY);
-    alarm_task = scheduler.timer(REARM_DELAY, alarm_check);
+    alarm_task = scheduler.timer(REARM_DELAY, rearm_alarm);
   }
   else {
     /*
       println("No activity detected");
-     print_seconds("ALARM check in", PERIOD_SLEEP);
-     */
+      print_seconds("ALARM check in", PERIOD_SLEEP);
+    */
     alarm_task = scheduler.timer(PERIOD_SLEEP, alarm_check);
   }
 }
