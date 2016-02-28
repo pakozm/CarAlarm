@@ -34,8 +34,6 @@ public:
     pins[0] = x_pin;
     pins[1] = y_pin;
     pins[2] = z_pin;
-    zeros(m_refs);
-    zeros(s_refs);
   }
   
   void setThreshold(float th) {
@@ -74,6 +72,8 @@ public:
   }
   
   virtual void reset() {
+    zeros(m_refs);
+    zeros(s_refs);
     float samples[SETUP_NUM_SAMPLES][3];
     for (int i=0; i<SETUP_NUM_SAMPLES; ++i) {
       readData(samples[i]);
