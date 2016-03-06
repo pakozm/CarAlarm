@@ -7,3 +7,6 @@
 [submodule "libraries/jeelib"]
 	path = libraries/jeelib
 	url = https://github.com/jcw/jeelib.git
+[submodule "libraries/VirtualWire"]
+	path = libraries/VirtualWire
+	url = git@github.com:kevinprince/VirtualWire.git
