@@ -10,3 +10,6 @@
 [submodule "libraries/VirtualWire"]
 	path = libraries/VirtualWire
 	url = git@github.com:kevinprince/VirtualWire.git
+[submodule "libraries/ArduinoAES256"]
+	path = libraries/ArduinoAES256
+	url = https://github.com/qistoph/ArduinoAES256.git
