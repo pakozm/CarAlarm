@@ -38,7 +38,6 @@ public:
   void setEpsilon(long eps) { epsilon = eps; }
   
   virtual void setup() {
-    pinMode(pin, INPUT);
     reset();
   }
   

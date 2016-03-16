@@ -21,15 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-#ifndef ALARM_UTILS_H
-#define ALARM_UTILS_H
-
-#include <TaskTimer.h>
-
-void setupAlarmPins();
-void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay);
-void cancelAlarm();
-void blink(unsigned long ms=100, unsigned long post_ms=200);
-void buzz(unsigned long ms=100, unsigned long post_ms=200);
-
-#endif // ALARM_UTILS_H
+#ifndef CMAC_GENERATOR_H
+#define CMAC_GENERATOR_H
+uint32_t generate_cmac(byte *key, uint32_t count, byte cmd);
+#endif // CMAC_GENERATOR_H

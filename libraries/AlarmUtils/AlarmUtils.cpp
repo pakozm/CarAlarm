@@ -25,7 +25,7 @@
 #include <TaskTimer.h>
 #include <SensorTransformations.h>
 
-// #define DEBUG
+#define DEBUG
 
 #include "AlarmUtils.h"
 #include "AlarmSensor.h"
@@ -89,7 +89,7 @@ const float DEF_ACC_TH = 10.0f;
 const long DEF_TMP_EPS = 20;   // 2C
 
 long Vcc; // in mili-volts
-TaskTimer *scheduler;
+TaskTimer *_scheduler;
 id_type alarm_task, blink_task, calibration_task;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -224,14 +224,16 @@ bool check_failure_Vcc() {
 
 void blink_and_repeat(void *) {
   blink();
-  blink_task = scheduler->timer(BLINK_DELAY, blink_and_repeat);
+  blink_task = _scheduler->timer(BLINK_DELAY, blink_and_repeat);
 }
+
+void alarm_check(void *);
 
 void rearm_alarm(void *) {
   for (int i=0; i<NUM_SENSORS; ++i) {
     sensors[i]->reset();
   }
-  alarm_task = scheduler->timer(PERIOD_SLEEP, alarm_check);
+  alarm_task = _scheduler->timer(PERIOD_SLEEP, alarm_check);
 }
 
 void alarm_check(void *)
@@ -248,14 +250,14 @@ void alarm_check(void *)
   if (activity_detected) {
     alarmAlert();
     print_seconds("ALARM rearm in", REARM_DELAY);
-    alarm_task = scheduler->timer(REARM_DELAY, rearm_alarm);
+    alarm_task = _scheduler->timer(REARM_DELAY, rearm_alarm);
   }
   else {
     /*
       println("No activity detected");
       print_seconds("ALARM check in", PERIOD_SLEEP);
     */
-    alarm_task = scheduler->timer(PERIOD_SLEEP, alarm_check);
+    alarm_task = _scheduler->timer(PERIOD_SLEEP, alarm_check);
   }
 }
 
@@ -263,7 +265,7 @@ void calibrate_timer(void *) {
   long Vcc = SensorUtils::calibrateVcc(REF_CAL);
   print("Vcc= "); 
   println(Vcc);
-  calibration_task = scheduler->timer(CALIBRATION_DELAY, calibrate_timer);
+  calibration_task = _scheduler->timer(CALIBRATION_DELAY, calibrate_timer);
 }
 
 long readPotentiometer(int pin) {
@@ -274,9 +276,19 @@ long readPotentiometer(int pin) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+void setupAlarmPins()
+{
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(BUZ_PIN, OUTPUT);
+  pinMode(SRN_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
+  delay(100);
+  digitalWrite(LED_PIN, LOW);
+}
+
 void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay)
 {
-  scheduler = sched_arg;
+  _scheduler = sched_arg;
   ALARM_DELAY = alarm_delay;
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUZ_PIN, OUTPUT);
@@ -321,19 +333,19 @@ void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay)
   }
 
   // register timer-based sensors
-  temp_sensor.registerTimer(&scheduler, TEMPERATURE_PERIOD);
+  temp_sensor.registerTimer(_scheduler, TEMPERATURE_PERIOD);
 
   // schedule all required tasks
-  blink_task = scheduler->timer(BLINK_DELAY, blink_and_repeat);
-  alarm_task = scheduler->timer(PERIOD_SLEEP, alarm_check);
-  calibration_task = scheduler->timer(CALIBRATION_DELAY, calibrate_timer);
+  blink_task = _scheduler->timer(BLINK_DELAY, blink_and_repeat);
+  alarm_task = _scheduler->timer(PERIOD_SLEEP, alarm_check);
+  calibration_task = _scheduler->timer(CALIBRATION_DELAY, calibrate_timer);
 
 } // end SETUP
 
 void cancelAlarm() {
-  scheduler->cancel(blink_task);
-  scheduler->cancel(alarm_task);
-  scheduler->cancel(calibration_task);
+  _scheduler->cancel(blink_task);
+  _scheduler->cancel(alarm_task);
+  _scheduler->cancel(calibration_task);
   temp_sensor.cancelTimer();
   for (int i=0; i<CANCEL_ALARM_REPETITIONS; ++i) {
 #ifdef DEBUG
