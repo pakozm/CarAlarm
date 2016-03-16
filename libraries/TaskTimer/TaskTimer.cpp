@@ -26,7 +26,7 @@
 #include <avr/wdt.h>
 #include <avr/power.h>
 #include <avr/interrupt.h>
-#include <JeeLib.h>
+#include <LowPower.h>
 #endif
 #include "TaskTimer.h"
 
@@ -36,15 +36,17 @@ extern void delay(unsigned long ms);
 
 void sleep(time_type ms) {
   if (ms > 0) {
-#ifdef JeeLib_h
+#ifndef PC_TEST
     if (ms < 30) {
       delay(ms);
     }
     else {
-      Sleepy::loseSomeTime(ms);
+      delay(ms);
+      // TODO: use LowPower library or similar to disconnect
+      // unnecesary devices and check sleep time in order to avoid
+      // external wake up due to RF communication.
     }
 #else
-#warning "Please, include JeeLib.h in your sketch source code."
     delay(ms);
 #endif
   }

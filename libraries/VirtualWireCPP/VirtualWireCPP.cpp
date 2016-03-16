@@ -271,7 +271,7 @@ VirtualWire::disable()
 }
 
 VirtualWire::Receiver::Receiver(uint8_t rx) : 
-  m_pin(rx), inverted_polarity(false)
+  m_pin(rx)
 {
   receiver = this;
 }
@@ -391,8 +391,7 @@ ISR(TIMER1_COMPA_vect)
   // Check if the receiver pin should be sampled
   if ((receiver != 0 && receiver->m_enabled)
       && (transmitter == 0 || !transmitter->m_enabled)) {
-    if (!inverted_polarity) receiver->m_sample = digitalRead(receiver->m_pin);
-    else receiver->m_sample = !digitalRead(receiver->m_pin);
+    receiver->m_sample = digitalRead(receiver->m_pin);
   }
     
   // Do transmitter stuff first to reduce transmitter bit jitter due 

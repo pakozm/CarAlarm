@@ -197,9 +197,6 @@ public:
 
     /** Number of good messages received */
     uint8_t m_good;
-
-    /** Inverted pin polarity */
-    bool inverted_polarity;
     
     /** The interrupt handler is a friend */
     friend void TIMER1_COMPA_vect(void);
@@ -218,11 +215,6 @@ public:
      * @param[in] rx input pin.
      */
     Receiver(uint8_t rx);
-
-    /**
-     * Sets the inverted_polarity flag.
-     */
-    void set_inverted_polarity(bool v) { inverted_polarity = v; }
     
     /**
      * Start the Phase Locked Loop listening for the receiver.

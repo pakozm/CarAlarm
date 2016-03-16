@@ -26,15 +26,19 @@
 
 class RFUtils {
 public:
-  const static int PADDING_SIZE    = 11;  // 11 padding bytes for 16 bytes of data
+  const static int  KEY_SIZE       = 16;
+  const static int  MAC_SIZE       = 4;
+  const static int  MESSAGE_SIZE   = 16;
+  const static int  PADDING_SIZE   = 7;  // 7 padding bytes for 16 bytes message length
   const static byte SWITCH_COMMAND = 0x01;
   const static byte KEY_COMMAND    = 0x20;
+  const static int  BAUD_RATE      = 2000;
   
   struct message_t {
-    byte padding[PADDING_SIZE];  // 11 byte
-    uint32_t count;              //  4 bytes
-    byte cmd;                    //  1 byte
-    uint32_t MAC;                //  4 bytes
+    byte padding[PADDING_SIZE];  // 7 byte
+    uint32_t count;              // 4 bytes
+    byte cmd;                    // 1 byte
+    uint32_t MAC;                // 4 bytes
   };
 };
 

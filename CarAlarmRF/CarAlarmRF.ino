@@ -58,17 +58,19 @@
 extern "C" {
 #include <aes.h>
 }
-#include <JeeLib.h>
+/*#include <JeeLib.h>
 ISR(WDT_vect) { 
   Sleepy::watchdogEvent(); 
 } // Setup for low power waiting
+*/
 #include <AlarmUtils.h>
 #include <EEPROM.h>
-#include <Manchester.h>
+#include <VirtualWireCPP.h>
 #include <TaskTimer.h>
 #include <SensorTransformations.h>
 #include <CMACGenerator.h>
 #include <RFUtils.h>
+#include <LowPower.h>
 
 typedef RFUtils::message_t message_t;
 
@@ -76,11 +78,12 @@ const byte VERSION = 1; // firmware version divided by 10 e,g 16 = V1.6
 const unsigned long ALARM_DELAY_MODE_ON = 20000; // 20 seconds
 const unsigned long ALARM_DELAY_MODE_RF =   100; // 100 mili-seconds
 
-const int MAC_LEN = 4;
-const int COMMAND_LEN = sizeof(message_t);
-const int KEY_LEN = 16;
-const int BLOCK_SIZE = 16;
+const int BLOCK_SIZE = RFUtils::MESSAGE_SIZE;
+const int MAC_SIZE = RFUtils::MAC_SIZE;
+const int KEY_SIZE = RFUtils::KEY_SIZE;
 const int MAX_TASKS = 10; // maximum number of tasks for Scheduler
+const int COUNT_MAX = 0xFFFFFFFF;
+const int MAX_COUNT_DIFF = 256;
 
 TaskTimerWithHeap<MAX_TASKS> scheduler;
 
@@ -91,7 +94,9 @@ const int EEPROM_ADDR  = 0;
 
 bool alarm_armed = false;
 uint32_t count = 0;
-byte key[KEY_LEN];
+byte key[KEY_SIZE];
+
+VirtualWire::Receiver rx(RX_PIN);
 
 union buf_msg_u {
   message_t msg;
@@ -103,23 +108,26 @@ buf_msg_u buf_msg;
 ///////////////////////////////////////////////////////////////////////////////
 
 void deepSleepMode() {
+  rx.await();
 }
 
 void awakeFromDeepSleep() {
 }
 
 bool check_count_code(uint32_t rx_count) {
-  return true;
+  uint32_t diff;
+  if (rx_count < count) {
+    diff = COUNT_MAX - count + rx_count;
+  }
+  else {
+    diff = rx_count - count;
+  }
+  return diff < MAX_COUNT_DIFF;
 }
 
-bool check_mac(uint32_t mac) {
-  return true;
-}
-
-bool waitRX(uint32_t timeout=60000) {
-  uint32_t t0 = millis();
-  while(!man.receiveComplete() && millis() - t0 < timeout) delay(100);
-  return millis() - t0 < timeout;
+bool check_mac(uint32_t rx_MAC) {
+  uint32_t MAC = generate_cmac(key, buf_msg.msg.count, buf_msg.msg.cmd);
+  return MAC == rx_MAC;
 }
 
 void pair() {
@@ -127,21 +135,28 @@ void pair() {
   for (int i=0; i<10; ++i) blink();
   blink(1000);
   buzz();
-  if (waitRX() && buf_msg.msg.cmd == RFUtils::KEY_COMMAND) {
-    blink();
-    buzz();
-    man.beginReceiveArray(BLOCK_SIZE, buf_msg.buffer);
-    delay(100);
-    if (waitRX()) {
-      count = 0;
-      EEPROM.write(EEPROM_ADDR, count);
-      for (int i = 0; i < KEY_LEN; ++i) {
-        EEPROM.write(i + EEPROM_ADDR + 1, key[i]);
-        blink();
+  rx.await(60000);
+  if (rx.available()) {
+    int8_t nbytes = rx.recv((void*)buf_msg.buffer, BLOCK_SIZE);
+    if (nbytes == BLOCK_SIZE &&
+        buf_msg.msg.cmd == RFUtils::KEY_COMMAND) {
+      blink();
+      buzz();
+      rx.await(60000);
+      if (rx.available()) {
+        int8_t nbytes = rx.recv((void*)buf_msg.buffer, BLOCK_SIZE);
+        if (nbytes == BLOCK_SIZE) {
+          count = 0;
+          EEPROM.write(EEPROM_ADDR, count);
+          for (int i = 0; i < KEY_SIZE; ++i) {
+            EEPROM.write(i + EEPROM_ADDR + 1, buf_msg.buffer[i]);
+            blink();
+          }
+          blink(1000);
+          buzz(); buzz();
+          return;
+        }
       }
-      blink(1000);
-      buzz(); buzz();
-      return;
     }
   }
   // error acknowledge
@@ -152,23 +167,34 @@ void pair() {
 }
 
 void rf_check() {
-  if (man.receiveComplete() && buf_msg.msg.cmd == RFUtils::SWITCH_COMMAND) {
+  if (rx.available()) {
+    int8_t nbytes = rx.recv((void*)buf_msg.buffer, BLOCK_SIZE);
+
+    for (int i=0; i<nbytes; ++i) {
+      Serial.print(buf_msg.buffer[i]); Serial.print(" ");
+    }
+    Serial.println();
+
+    if (nbytes != BLOCK_SIZE) return;
+    if (buf_msg.msg.cmd != RFUtils::SWITCH_COMMAND) return;
+    
     uint32_t rx_count = buf_msg.msg.count;
     uint32_t rx_mac = buf_msg.msg.MAC;
     if (check_count_code(rx_count) &&
         check_mac(rx_mac)) {
+      Serial.print("ARMED= "); Serial.println(!alarm_armed);
+      count = rx_count+1; // keep track of the next count
       if (alarm_armed) {
-        cancelAlarm();
-      deepSleepMode();
+        //cancelAlarm();
+        deepSleepMode();
       }
       else {
         awakeFromDeepSleep();
-        setupAlarm(&scheduler, ALARM_DELAY_MODE_RF);
+        //setupAlarm(&scheduler, ALARM_DELAY_MODE_RF);
       }
       alarm_armed = !alarm_armed;
     }
   }
-  man.beginReceiveArray(BLOCK_SIZE, buf_msg.buffer);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -180,9 +206,10 @@ void setup()
   digitalWrite(PRG_PIN, HIGH);
   digitalWrite(13, LOW);
   setupAlarmPins();
-  
-  man.setupReceive(RX_PIN, MAN_1200);
-  man.beginReceiveArray(BLOCK_SIZE, buf_msg.buffer);
+
+  VirtualWire::begin(RFUtils::BAUD_RATE);
+  rx.begin();
+
   Serial.begin(9600);
   delay(1000);
   while (!Serial); // wait for Leonardo
@@ -192,24 +219,23 @@ void setup()
 
   if (digitalRead(PRG_PIN) == LOW) {
     pair(); delay(1000);
-    man.beginReceiveArray(BLOCK_SIZE, buf_msg.buffer);
   }
   digitalWrite(PRG_PIN, LOW);
   
   count = EEPROM.read(EEPROM_ADDR);
   Serial.print("count= "); Serial.println(count);
-  for (int i=0; i<KEY_LEN; ++i) {
+  for (int i=0; i<KEY_SIZE; ++i) {
     key[i] = EEPROM.read(EEPROM_ADDR+i+1);
     Serial.print("KEY["); Serial.print(i); Serial.print("]= "); Serial.println(key[i]);
   }
-  setupAlarm(&scheduler, ALARM_DELAY_MODE_ON);
+  //setupAlarm(&scheduler, ALARM_DELAY_MODE_ON);
   alarm_armed = true;
 } // end SETUP
 
 void loop() {
   if (scheduler.pollWaiting() == ALL_IDLE) {
     Serial.println("ALL_IDLE");
-    sleep(100000);
+    rx.await();
   }
   rf_check();
 }
