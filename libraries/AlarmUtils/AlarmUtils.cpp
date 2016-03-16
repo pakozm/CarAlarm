@@ -53,17 +53,17 @@ const unsigned long ALARM_DURATION =  60000; // 60 seconds
 unsigned long ALARM_DELAY          =  20000; // 20 seconds
 #endif
 
-const int CANCEL_ALARM_REPETITIONS    = 1;
+const int CANCEL_ALARM_REPETITIONS    = 2;
 const int CANCEL_ALARM_DURATION       = 50; // 50 ms
 
 const int BATTERY_OK_REPETITIONS    = 1;
 const int BATTERY_OK_DURATION       = 50; // 50 ms
 
 const int BATTERY_ALERT_REPETITIONS = 5;
-const int BATTERY_ALERT_DURATION    = 500; // 0.5 seconds
+const int BATTERY_ALERT_DURATION    = 50; // 50 ms
 
 const int BATTERY_ERROR_REPETITIONS = 10;
-const int BATTERY_ERROR_DURATION    = 100; // 100 ms
+const int BATTERY_ERROR_DURATION    = 50; // 50 ms
 
 const long VCC_ALERT = 4600; // mili-volts
 const long VCC_ERROR = 4300; // mili-volts
@@ -190,9 +190,10 @@ bool check_failure_Vcc() {
   if (Vcc < VCC_ERROR) {
     for (int i=0; i<BATTERY_ERROR_REPETITIONS; ++i) {
 #ifdef DEBUG
+      blink(100, 5);
       buzz(BATTERY_ERROR_DURATION);
 #else
-      siren_on(); sleep(50); siren_off(); sleep(100);
+      siren_on(); sleep(BATTERY_ERROR_DURATION); siren_off(); sleep(100);
 #endif
     }
     return true;
@@ -200,10 +201,10 @@ bool check_failure_Vcc() {
   else if (Vcc < VCC_ALERT) {
     for (int i=0; i<BATTERY_ALERT_REPETITIONS; ++i) {
 #ifdef DEBUG
-      blink(100, 0);
+      blink(100, 5);
       buzz(BATTERY_ALERT_DURATION, 0);
 #else      
-      siren_on(); sleep(50); siren_off(); sleep(100);
+      siren_on(); sleep(BATTERY_ALERT_DURATION); siren_off(); sleep(100);
 #endif
     }
   }
@@ -211,10 +212,10 @@ bool check_failure_Vcc() {
     // indicates correct function by buzzing and blinking
     for (int i=0; i<BATTERY_OK_REPETITIONS; ++i) {
 #ifdef DEBUG
-      blink(100, 0);
+      blink(100, 5);
       buzz(BATTERY_OK_DURATION, 0);
 #else
-      siren_on(); sleep(50); siren_off(); sleep(100);
+      siren_on(); sleep(BATTERY_OK_DURATION); siren_off(); sleep(100);
 #endif 
     }
   }
@@ -335,9 +336,11 @@ void cancelAlarm() {
   scheduler->cancel(calibration_task);
   temp_sensor.cancelTimer();
   for (int i=0; i<CANCEL_ALARM_REPETITIONS; ++i) {
-    siren_on();
-    delay(CANCEL_ALARM_DURATION);
-    siren_off();
-    delay(CANCEL_ALARM_DURATION);
+#ifdef DEBUG
+      blink(100, 5);
+      buzz(CANCEL_ALARM_DURATION, 0);
+#else
+      siren_on(); sleep(CANCEL_ALARM_DURATION); siren_off(); sleep(100);
+#endif 
   }
 }
