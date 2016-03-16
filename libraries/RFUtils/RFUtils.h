@@ -21,15 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-#ifndef ALARM_UTILS_H
-#define ALARM_UTILS_H
+#ifndef RF_UTILS_H
+#define RF_UTILS_H
 
-#include <TaskTimer.h>
+class RFUtils {
+public:
+  const static int PADDING_SIZE    = 11;  // 11 padding bytes for 16 bytes of data
+  const static byte SWITCH_COMMAND = 0x01;
+  const static byte KEY_COMMAND    = 0x20;
+  
+  struct message_t {
+    byte padding[PADDING_SIZE];  // 11 byte
+    uint32_t count;              //  4 bytes
+    byte cmd;                    //  1 byte
+    uint32_t MAC;                //  4 bytes
+  };
+};
 
-void setupAlarmPins();
-void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay);
-void cancelAlarm();
-void blink(unsigned long ms=100, unsigned long post_ms=200);
-void buzz(unsigned long ms=100, unsigned long post_ms=200);
-
-#endif // ALARM_UTILS_H
+#endif // RF_UTILS_H

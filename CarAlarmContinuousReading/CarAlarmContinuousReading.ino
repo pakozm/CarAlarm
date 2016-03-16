@@ -70,7 +70,7 @@ ISR(WDT_vect) {
 #include <TaskTimer.h>
 #include <SensorTransformations.h>
 
-const byte VERSION = 08; // firmware version divided by 10 e,g 16 = V1.6
+const byte VERSION = 8; // firmware version divided by 10 e,g 16 = V1.6
 const unsigned long ALARM_DELAY_MODE_ON = 20000; // 20 seconds
 
 const int MAX_TASKS = 10; // maximum number of tasks for Scheduler
@@ -83,18 +83,20 @@ void setup()
 {
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW);
+  setupAlarmPins();
+  
   Serial.begin(9600);
   delay(100);
   while (!Serial); // wait for Leonardo
-  print("CarAlarmContinuousReading V");
-  println(VERSION*0.1f);
-  println("Francisco Zamora-Martinez (2016)");
+  Serial.print("CarAlarmContinuousReading V");
+  Serial.println(VERSION*0.1f);
+  Serial.println("Francisco Zamora-Martinez (2016)");
   setupAlarm(&scheduler, ALARM_DELAY_MODE_ON);
 } // end SETUP
 
 void loop() {
   if (scheduler.pollWaiting() == ALL_IDLE) {
-    println("ALL_IDLE");
+    Serial.println("ALL_IDLE");
     sleep(100000);
   }
 }

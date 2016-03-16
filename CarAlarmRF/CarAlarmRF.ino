@@ -55,46 +55,50 @@
  *******************************************************************************/
 #define CAR_ALARM_INO
 
+extern "C" {
+#include <aes.h>
+}
 #include <JeeLib.h>
 ISR(WDT_vect) { 
   Sleepy::watchdogEvent(); 
 } // Setup for low power waiting
 #include <AlarmUtils.h>
 #include <EEPROM.h>
+#include <Manchester.h>
 #include <TaskTimer.h>
 #include <SensorTransformations.h>
-#include <VirtualWire.h>
+#include <CMACGenerator.h>
+#include <RFUtils.h>
 
-const byte VERSION = 08; // firmware version divided by 10 e,g 16 = V1.6
+typedef RFUtils::message_t message_t;
+
+const byte VERSION = 1; // firmware version divided by 10 e,g 16 = V1.6
 const unsigned long ALARM_DELAY_MODE_ON = 20000; // 20 seconds
 const unsigned long ALARM_DELAY_MODE_RF =   100; // 100 mili-seconds
 
 const int MAC_LEN = 4;
 const int COMMAND_LEN = sizeof(message_t);
 const int KEY_LEN = 16;
+const int BLOCK_SIZE = 16;
 const int MAX_TASKS = 10; // maximum number of tasks for Scheduler
 
 TaskTimerWithHeap<MAX_TASKS> scheduler;
 
 // digital pins connection
-const int RX_PIN  = 3;
-const int PRG_PIN = 2;
-const int EEPROM_POS = 0;
+const int RX_PIN  = 2;
+const int PRG_PIN = 3;
+const int EEPROM_ADDR  = 0;
 
 bool alarm_armed = false;
-uint32_t seq = 0;
+uint32_t count = 0;
 byte key[KEY_LEN];
 
-struct padded_message_t {
+union buf_msg_u {
   message_t msg;
-  byte padding[VW_MAX_MESSAGE_LEN - COMMAND_LEN];
+  byte buffer[BLOCK_SIZE];
 };
 
-union {
-  padded_message_t padded_msg;
-  uint8_t rx_buf[VW_MAX_MESSAGE_LEN];
-};
-uint8_t rx_buflen = VW_MAX_MESSAGE_LEN;
+buf_msg_u buf_msg;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -104,79 +108,99 @@ void deepSleepMode() {
 void awakeFromDeepSleep() {
 }
 
-bool check_seq_code(uint32_t rx_seq) {
+bool check_count_code(uint32_t rx_count) {
   return true;
 }
 
-bool check_mac(byte mac[MAC_LEN], message_t &msg) {
+bool check_mac(uint32_t mac) {
   return true;
 }
 
-void rf_check() {
-  if (vw_have_message()) {
-    vw_get_message(rx_buf, &rx_buflen);
-    if (rx_buflen == COMMAND_LEN) {
-      message_t msg = padded_msg.msg;
-      byte command = msg.command;
-      uint32_t rx_seq = msg.code;
-      uint32_t rx_mac = msg.mac;
-      if (check_seq_code(rx_seq) &&
-          check_mac(rx_mac, msg)) {
-        if (command == CMD_SWITCH_ALARM_STATE) {
-          if (alarm_armed) {
-            cancelAlarm();
-          deepSleepMode();
-          }
-          else {
-            awakeFromDeepSleep();
-            setupAlarm(&scheduler, ALARM_DELAY_MODE_RF);
-          }
-          alarm_armed = !alarm_armed;
-        }
-      }
-    }
-  }
+bool waitRX(uint32_t timeout=60000) {
+  uint32_t t0 = millis();
+  while(!man.receiveComplete() && millis() - t0 < timeout) delay(100);
+  return millis() - t0 < timeout;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-
-void programRF() {
+void pair() {
+  Serial.println("PAIRING");
   for (int i=0; i<10; ++i) blink();
   blink(1000);
   buzz();
-  vw_wait_rx();
-  vw_get_message(rx_buf, &rx_buflen);
-  if (rx_buflen == KEY_LEN + COMMAND_LEN) {
-    EEPROM.write(EEPROM_POS, 0); // code
-    // write buffer key to EEPROM
-    for (int i=0; i<KEY_LEN; ++i) {
-      EEPROM.write(EEPROM_POS+i+1, rx_buf[i+COMMAND_LEN]);
-      blink();
-    }
-    blink(1000);
+  if (waitRX() && buf_msg.msg.cmd == RFUtils::KEY_COMMAND) {
+    blink();
     buzz();
+    man.beginReceiveArray(BLOCK_SIZE, buf_msg.buffer);
+    delay(100);
+    if (waitRX()) {
+      count = 0;
+      EEPROM.write(EEPROM_ADDR, count);
+      for (int i = 0; i < KEY_LEN; ++i) {
+        EEPROM.write(i + EEPROM_ADDR + 1, key[i]);
+        blink();
+      }
+      blink(1000);
+      buzz(); buzz();
+      return;
+    }
   }
+  // error acknowledge
+  blink(); buzz();
+  blink(); buzz();
+  blink(); buzz();
+  blink(); buzz();
 }
+
+void rf_check() {
+  if (man.receiveComplete() && buf_msg.msg.cmd == RFUtils::SWITCH_COMMAND) {
+    uint32_t rx_count = buf_msg.msg.count;
+    uint32_t rx_mac = buf_msg.msg.MAC;
+    if (check_count_code(rx_count) &&
+        check_mac(rx_mac)) {
+      if (alarm_armed) {
+        cancelAlarm();
+      deepSleepMode();
+      }
+      else {
+        awakeFromDeepSleep();
+        setupAlarm(&scheduler, ALARM_DELAY_MODE_RF);
+      }
+      alarm_armed = !alarm_armed;
+    }
+  }
+  man.beginReceiveArray(BLOCK_SIZE, buf_msg.buffer);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 
 void setup()
 {
   pinMode(PRG_PIN, INPUT);
   pinMode(13, OUTPUT);
+  digitalWrite(PRG_PIN, HIGH);
   digitalWrite(13, LOW);
+  setupAlarmPins();
+  
+  man.setupReceive(RX_PIN, MAN_1200);
+  man.beginReceiveArray(BLOCK_SIZE, buf_msg.buffer);
   Serial.begin(9600);
-  delay(100);
+  delay(1000);
   while (!Serial); // wait for Leonardo
-  print("CarAlarmRF V");
-  println(VERSION*0.1f);
-  println("Francisco Zamora-Martinez (2016)");
-  vw_set_rx_pin(RX_PIN);
-  vw_setup(2000);
-  vw_rx_start();
-  delay(100);
-  if (digitalRead(PRG_PIN) == HIGH) programRF();
-  seq = EEPROM.read(EEPROM_POS);
+  Serial.print("CarAlarmRF V");
+  Serial.println(VERSION*0.1f);
+  Serial.println("Francisco Zamora-Martinez (2016)");
+
+  if (digitalRead(PRG_PIN) == LOW) {
+    pair(); delay(1000);
+    man.beginReceiveArray(BLOCK_SIZE, buf_msg.buffer);
+  }
+  digitalWrite(PRG_PIN, LOW);
+  
+  count = EEPROM.read(EEPROM_ADDR);
+  Serial.print("count= "); Serial.println(count);
   for (int i=0; i<KEY_LEN; ++i) {
-    key[i] = EEPROM.read(EEPROM_POS+i+1);
+    key[i] = EEPROM.read(EEPROM_ADDR+i+1);
+    Serial.print("KEY["); Serial.print(i); Serial.print("]= "); Serial.println(key[i]);
   }
   setupAlarm(&scheduler, ALARM_DELAY_MODE_ON);
   alarm_armed = true;
@@ -184,7 +208,7 @@ void setup()
 
 void loop() {
   if (scheduler.pollWaiting() == ALL_IDLE) {
-    println("ALL_IDLE");
+    Serial.println("ALL_IDLE");
     sleep(100000);
   }
   rf_check();
