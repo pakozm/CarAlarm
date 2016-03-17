@@ -1,15 +1,3 @@
-[submodule "libraries/analogComp"]
-	path = libraries/analogComp
-	url = https://github.com/leomil72/analogComp.git
 [submodule "libraries/Low-Power"]
 	path = libraries/LowPower
 	url = https://github.com/rocketscream/Low-Power.git
-[submodule "libraries/jeelib"]
-	path = libraries/jeelib
-	url = https://github.com/jcw/jeelib.git
-[submodule "libraries/VirtualWire"]
-	path = libraries/VirtualWire
-	url = https://github.com/kevinprince/VirtualWire.git
-[submodule "libraries/arduino-libs-manchester"]
-	path = libraries/manchester
-	url = https://github.com/mchr3k/arduino-libs-manchester.git
