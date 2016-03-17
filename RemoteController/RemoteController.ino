@@ -80,7 +80,7 @@ void led_off() {
   digitalWrite(LED_PIN, LOW);
 }
 
-void blink(unsigned long ms = 100, unsigned long post_ms = 200) {
+void blink(unsigned long ms = 50, unsigned long post_ms = 200) {
   led_on();
   delay(ms);
   led_off();
