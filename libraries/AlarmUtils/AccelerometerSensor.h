@@ -126,7 +126,7 @@ private:
   float m_refs[3], s_refs[3], low_refs[3], high_refs[3];
   float threshold2;
   static const int SETUP_NUM_SAMPLES=30;
-  static const unsigned long SETUP_SAMPLE_DELAY=100;
+  static const unsigned long SETUP_SAMPLE_DELAY=10;
   
   template<typename T>
   void print(const T *vec) {

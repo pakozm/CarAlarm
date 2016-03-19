@@ -58,12 +58,22 @@ public:
    *  real measure:  20C..37C
    */
   long readTemperature() const {
-      // static const long in_a  = 170, in_b  = 270;
-      // static const long out_a = 200, out_b = 370;
-      analogRead(pin);
-      delay(50);
-      // return map(TemperatureUtils::convertToCelsius(analogRead(pin)), in_a, in_b, out_a, out_b);
-      return TemperatureUtils::convertToCelsius(analogRead(pin));
+    // activate ADC
+    power_adc_enable();
+    ADCSRA |= (1 << ADEN);
+    
+    // static const long in_a  = 170, in_b  = 270;
+    // static const long out_a = 200, out_b = 370;
+    analogRead(pin);
+    delay(50);
+    // return map(TemperatureUtils::convertToCelsius(analogRead(pin)), in_a, in_b, out_a, out_b);
+    long T = TemperatureUtils::convertToCelsius(analogRead(pin));
+
+    // Disable ADC
+    ADCSRA &= ~(1 << ADEN);
+    power_adc_disable();
+    
+    return T;
   }
   
 private:

@@ -35,19 +35,6 @@ extern void delay(unsigned long ms);
 #endif
 
 void sleep(time_type ms) {
-  if (ms > 0) {
-#ifndef PC_TEST
-    if (ms < 30) {
-      delay(ms);
-    }
-    else {
-      delay(ms);
-      // TODO: use LowPower library or similar to disconnect
-      // unnecesary devices and check sleep time in order to avoid
-      // external wake up due to RF communication.
-    }
-#else
-    delay(ms);
-#endif
-  }
+  unsigned long t0 = millis();
+  if (ms > 10) delay(10);
 }

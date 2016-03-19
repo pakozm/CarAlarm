@@ -173,9 +173,17 @@ id_type TaskTimerWithHeap<MAX>::pollWaiting() {
   if (!tasks_heap.empty()) {
     id_type id = tasks_heap.top();
     time_type sleep_time = computeSleepTime(id);
+    unsigned long t0 = millis();
     sleep(sleep_time);
-    run(id);
-    return id;
+    unsigned long t1 = millis();
+    if ( (t0 < t1 && t1 - t0 >= sleep_time) ||
+         (ULONG_MAX - t0 + t1 >= sleep_time) ) {
+      run(id);
+      return id;
+    }
+    else {
+      return WAIT_MORE;
+    }
   }
   else {
     return ALL_IDLE;

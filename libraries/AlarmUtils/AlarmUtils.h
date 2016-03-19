@@ -27,6 +27,7 @@
 #include <TaskTimer.h>
 
 void setupAlarmPins();
+void cancelAlarmPins();
 void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay);
 void cancelAlarm();
 void blink(unsigned long ms=100, unsigned long post_ms=200);
