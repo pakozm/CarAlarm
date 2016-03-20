@@ -47,18 +47,6 @@ public:
   virtual bool checkActivity() {
     float vec[3];
     readData(vec);
-    bool activity = false;
-    for (int i=0; i<3; ++i) {
-      if (vec[i] < low_refs[i] || vec[i] > high_refs[i]) {
-        activity=true;
-      }
-    }
-    if (Serial) {
-      if (activity) {
-        Serial.print("ACC: vec= ");
-        println(vec);
-      }
-    }
     axpy(vec, -1.0f, m_refs);
     square(vec);
     float s = sum(vec);
@@ -68,12 +56,11 @@ public:
         Serial.println(s);
       }
     }
-    return s > threshold2 && activity;
+    return s > threshold2;
   }
   
   virtual void reset() {
     zeros(m_refs);
-    zeros(s_refs);
     float samples[SETUP_NUM_SAMPLES][3];
     for (int i=0; i<SETUP_NUM_SAMPLES; ++i) {
       readData(samples[i]);
@@ -81,27 +68,11 @@ public:
       delay(SETUP_SAMPLE_DELAY);
     }
     scal(m_refs, 1.0f/SETUP_NUM_SAMPLES);
-    float dif[3];
-    for (int i=0; i<SETUP_NUM_SAMPLES; ++i) {
-      copy(dif, samples[i]);
-      axpy(dif, -1.0f, m_refs);
-      square(dif);
-      axpy(s_refs, 1.0f, dif);
-    }
-    scal(s_refs, 1.0f/(SETUP_NUM_SAMPLES-1));
-    squareRoot(s_refs);
     
     if (Serial) {
       Serial.print("ACC Reference: mu=    ");
       println(m_refs);
-      Serial.print("               sigma= ");
-      println(s_refs);
     }
-
-    copy(high_refs, m_refs);
-    copy(low_refs, m_refs);
-    axpy(high_refs, 2.0f, s_refs);
-    axpy(low_refs, -2.0f, s_refs);
   }
   
   virtual const char * const getName() { return "ACC"; }
@@ -123,7 +94,7 @@ public:
   
 private:
   int pins[3];
-  float m_refs[3], s_refs[3], low_refs[3], high_refs[3];
+  float m_refs[3];
   float threshold2;
   static const int SETUP_NUM_SAMPLES=30;
   static const unsigned long SETUP_SAMPLE_DELAY=10;

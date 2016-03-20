@@ -29,7 +29,7 @@
 #include <avr/power.h>
 #include <avr/interrupt.h>
 
-#define DEBUG
+// #define DEBUG
 
 #include "AlarmUtils.h"
 #include "AlarmSensor.h"
@@ -40,10 +40,10 @@
 const long REF_CAL = 1120000L;
 // WARNING: should be PERIOD_SLEEP >= 100
 const unsigned long PERIOD_SLEEP =  1000; // 1000 ms
-const unsigned long BLINK_DELAY  = 10000; // 10 seconds
+const unsigned long BLINK_DELAY  = 30000; // 30 seconds
 
 const unsigned long CALIBRATION_DELAY  = 900000; // 15 minutes
-const unsigned long TEMPERATURE_PERIOD =   2000; //  2 second
+const unsigned long TEMPERATURE_PERIOD =  10000; // 10 second
 
 #ifdef DEBUG
 const unsigned long START_SLEEP    =  1000; // 1 seconds
@@ -115,21 +115,6 @@ template<typename T> void println(const T &obj);
 void blink_and_repeat(void *);
 void rearm_alarm(void *);
 
-void adc_on()
-{
-  // activate ADC
-  power_adc_enable();
-  ADCSRA |= (1 << ADEN);
-  delay(10);
-}
-
-void adc_off()
-{
-  // Disable ADC
-  ADCSRA &= ~(1 << ADEN);
-  power_adc_disable();
-}
-
 template<typename T>
 void print(const T &obj) {
   if (Serial) Serial.print(obj);
@@ -192,11 +177,10 @@ void buzz(unsigned long ms, unsigned long post_ms) {
 bool started_alert = false;
 void alarmAlertTask(void *)
 {
-  print_seconds("          buzzing during", ALARM_DURATION);
   led_off();
   if (!started_alert) {
     started_alert = true;
-    print_seconds("          buzzing during", ALARM_DURATION);
+    print_seconds("          buzzing during at least", ALARM_DURATION);
     siren_on();
   }
   if (millis() - t0 < ALARM_DURATION) {
@@ -227,7 +211,6 @@ void alarmAlert() {
   led_on();
   alarm_alert_task = _scheduler->timer(ALARM_DELAY, alarmAlertTask);
   _scheduler->cancel(blink_task);
-  _scheduler->cancel(alarm_task);
   temp_sensor.cancelTimer();
 }
 
@@ -275,22 +258,16 @@ void blink_and_repeat(void *) {
 void alarm_check(void *);
 
 void rearm_alarm(void *) {
-  adc_on();
-
   for (int i=0; i<NUM_SENSORS; ++i) {
     sensors[i]->reset();
   }
   alarm_task = _scheduler->timer(PERIOD_SLEEP, alarm_check);
-  
-  adc_off();
 }
 
 void alarm_check(void *)
 {
   int i, activity_detected=0;
 
-  adc_on();
-  
   for (i=0; i<NUM_SENSORS; ++i) {
     if (sensors[i]->checkActivity()) {
       print("Activity at sensor: ");
@@ -308,8 +285,7 @@ void alarm_check(void *)
     */
     alarm_task = _scheduler->timer(PERIOD_SLEEP, alarm_check);
   }
-
-  adc_off();
+  
 }
 
 void calibrate_timer(void *) {
@@ -329,8 +305,6 @@ long readPotentiometer(int pin) {
 
 void setupTask(void *)
 {
-  adc_on();
-  
   started = true;
   blink();
   // initialize all installed sensors
@@ -343,8 +317,6 @@ void setupTask(void *)
   blink_task = _scheduler->timer(BLINK_DELAY, blink_and_repeat);
   alarm_task = _scheduler->timer(PERIOD_SLEEP, alarm_check);
   calibration_task = _scheduler->timer(CALIBRATION_DELAY, calibrate_timer);
-  
-  adc_off();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -368,8 +340,6 @@ void cancelAlarmPins()
 
 void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay)
 {
-  adc_on();
-  
   _scheduler = sched_arg;
   ALARM_DELAY = alarm_delay;
   started = false;
@@ -402,8 +372,6 @@ void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay)
 
   print_seconds("START.....wait ", START_SLEEP);
   setup_task = _scheduler->timer(START_SLEEP, setupTask);
-  
-  adc_off();
 } // end SETUP
 
 void cancelAlarm() {

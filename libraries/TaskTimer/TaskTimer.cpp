@@ -26,7 +26,7 @@
 #include <avr/wdt.h>
 #include <avr/power.h>
 #include <avr/interrupt.h>
-#include <LowPower.h>
+#include <JeeLib.h>
 #endif
 #include "TaskTimer.h"
 
@@ -35,6 +35,10 @@ extern void delay(unsigned long ms);
 #endif
 
 void sleep(time_type ms) {
-  unsigned long t0 = millis();
-  if (ms > 10) delay(10);
+  if (ms > 30) {
+    Sleepy::loseSomeTime(ms);
+  }
+  else {
+    delay(ms);
+  }
 }

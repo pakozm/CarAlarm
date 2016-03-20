@@ -68,8 +68,6 @@ void send_command(byte cmd, byte *payload = 0, byte payload_length = 0) {
     tx.send((void*)payload, payload_length);
     tx.await();
   }
-  ++count;
-  EEPROM.write(EEPROM_ADDR, count);
 }
 
 void led_on() {
@@ -107,8 +105,7 @@ uint8_t get_random_uint8() {
 
 void pair() {
   delay(2000); // wait two seconds before starting pairing
-  blink();
-  blink();
+  for (int i=0; i<4; ++i) blink();
   for (int i = 0; i < KEY_SIZE; ++i) {
     key[i] = get_random_uint8();
     blink(10);
@@ -155,7 +152,14 @@ void loop() {
     pair();
   }
   else {
-    send_command(RFUtils::SWITCH_COMMAND);
+    blink();
+    unsigned long t0 = millis();
+    while(millis() - t0 < 4000) {
+      send_command(RFUtils::SWITCH_COMMAND);
+      delay(33);
+    }
+    ++count;
+    EEPROM.write(EEPROM_ADDR, count);
     blink();
   }
   shutdown();
