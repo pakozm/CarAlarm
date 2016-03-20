@@ -28,7 +28,8 @@
 
 void setupAlarmPins();
 void cancelAlarmPins();
-void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay);
+void setupAlarm(TaskTimer *sched_arg,
+                unsigned long alarm_delay, unsigned long start_sleep);
 void cancelAlarm();
 void blink(unsigned long ms=100, unsigned long post_ms=200);
 void buzz(unsigned long ms=100, unsigned long post_ms=200);

@@ -51,6 +51,7 @@ public:
 class AlarmSensorWithTimer : public AlarmSensor {
 public:
 
+  AlarmSensorWithTimer() : registered(false) {}
   virtual ~AlarmSensorWithTimer() {}
   
   /// Registers the timer at the given scheduler for the given time period.
@@ -62,12 +63,13 @@ public:
 
   /// Cancels the timer.
   virtual void cancelTimer() {
-    scheduler->cancel(timer_id);
+    if (registered) scheduler->cancel(timer_id);
   }
 
   /// Registers the timer with previous one configuration.
   virtual void setupTimer() {
     timer_id = scheduler->timer(period, timerFunc, this);
+    registered = true;
   }
   
 protected:
@@ -78,10 +80,12 @@ private:
   TaskTimer *scheduler;
   time_type period;
   id_type timer_id;
+  bool registered;
 
   /// Static method, delegates its execution on timerStep() method.
   static void timerFunc(void *ptr) {
     AlarmSensorWithTimer *self = static_cast<AlarmSensorWithTimer*>(ptr);
+    self->registered = false;
     if (self->timerStep()) self->registerTimer(self->scheduler, self->period);
   }
 };

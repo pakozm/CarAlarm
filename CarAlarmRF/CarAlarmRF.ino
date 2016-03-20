@@ -78,6 +78,8 @@ extern "C" {
 typedef RFUtils::message_t message_t;
 
 const byte VERSION = 1; // firmware version divided by 10 e,g 16 = V1.6
+const unsigned long START_SLEEP_MODE_ON = 60000; // 60 seconds
+const unsigned long START_SLEEP_MODE_RF =  5000; // in mili-seconds
 const unsigned long ALARM_DELAY_MODE_ON = 20000; // 20 seconds
 const unsigned long ALARM_DELAY_MODE_RF =  5000; // in mili-seconds
 
@@ -87,7 +89,7 @@ const int KEY_SIZE = RFUtils::KEY_SIZE;
 const int MAX_TASKS = 15; // maximum number of tasks for Scheduler
 const int COUNT_MAX = 0xFFFFFFFF;
 const uint32_t MAX_COUNT_DIFF = 256;
-const int RF_CHECK_PERIOD = 1000; // in mili-seconds
+const int RF_CHECK_PERIOD = 1666; // in mili-seconds
 
 TaskTimerWithHeap<MAX_TASKS> scheduler;
 
@@ -113,9 +115,14 @@ buf_msg_u buf_msg;
 ///////////////////////////////////////////////////////////////////////////////
 
 void deepSleepMode() {
+  ADCSRA &= ~(1 << ADEN);
+  power_adc_disable();
+  
 }
 
 void awakeFromDeepSleep() {
+  power_adc_enable();
+  ADCSRA |= (1 << ADEN);
 }
 
 bool check_count_code(uint32_t rx_count) {
@@ -180,8 +187,8 @@ void pair() {
 
 void rf_check(void *) {
   if (Serial) Serial.println("RF CHECK");
-  unsigned long t = millis(); while(millis() - t < 100);
-  rx.await(100);
+  unsigned long t = millis();
+  while(millis() - t < 333 && !rx.available());
   if (rx.available()) {
     int8_t nbytes = rx.recv((void*)buf_msg.buffer, BLOCK_SIZE);
 
@@ -218,7 +225,7 @@ void rf_check(void *) {
       else {
         awakeFromDeepSleep();
         setupAlarmPins();
-        setupAlarm(&scheduler, ALARM_DELAY_MODE_RF);
+        setupAlarm(&scheduler, ALARM_DELAY_MODE_RF, START_SLEEP_MODE_RF);
       }
       alarm_armed = !alarm_armed;
     }
@@ -283,7 +290,7 @@ void setup()
     key[i] = EEPROM.read(EEPROM_ADDR + i + 1);
     Serial.print("KEY["); Serial.print(i); Serial.print("]= "); Serial.println(key[i]);
   }
-  setupAlarm(&scheduler, ALARM_DELAY_MODE_ON);
+  setupAlarm(&scheduler, ALARM_DELAY_MODE_ON, START_SLEEP_MODE_ON);
   alarm_armed = true;
 
   low_power_mode();

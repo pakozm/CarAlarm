@@ -46,12 +46,12 @@ const unsigned long CALIBRATION_DELAY  = 900000; // 15 minutes
 const unsigned long TEMPERATURE_PERIOD =  10000; // 10 second
 
 #ifdef DEBUG
-const unsigned long START_SLEEP    =  1000; // 1 seconds
+unsigned long START_SLEEP          =  1000; // 1 seconds
 const unsigned long REARM_DELAY    =  4000; // 4 seconds
 const unsigned long ALARM_DURATION =  6000; // 6 seconds
 unsigned long ALARM_DELAY          =  1000; // 1 seconds
 #else
-const unsigned long START_SLEEP    = 120000; //  2 minutes
+unsigned long START_SLEEP          =  60000; //  1 minute
 const unsigned long REARM_DELAY    = 900000; // 15 minutes
 const unsigned long ALARM_DURATION =  60000; // 60 seconds
 unsigned long ALARM_DELAY          =  20000; // 20 seconds
@@ -94,8 +94,8 @@ const long DEF_TMP_EPS = 20;   // 2C
 
 long Vcc; // in mili-volts
 TaskTimer *_scheduler;
-id_type alarm_task, blink_task, calibration_task, setup_task, alarm_alert_task;
-bool started = false, alerting = false;
+id_type alarm_task, blink_task, calibration_task;
+bool started = false, alerting = false, calibration_scheduled = false;
 unsigned long t0;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -187,9 +187,8 @@ void alarmAlertTask(void *)
 #ifdef DEBUG
     buzz();
 #endif
-    blink(100,100);
     blink(100,0);
-    alarm_alert_task = _scheduler->timer(1800, alarmAlertTask);
+    alarm_task = _scheduler->timer(1900, alarmAlertTask);
   }
   else {
     siren_off();
@@ -208,8 +207,7 @@ void alarmAlert() {
   t0 = millis() + ALARM_DELAY;
   alerting = true;
   started_alert = false;
-  led_on();
-  alarm_alert_task = _scheduler->timer(ALARM_DELAY, alarmAlertTask);
+  alarm_task = _scheduler->timer(ALARM_DELAY, alarmAlertTask);
   _scheduler->cancel(blink_task);
   temp_sensor.cancelTimer();
 }
@@ -239,12 +237,12 @@ bool check_failure_Vcc() {
   else {
     // indicates correct function by buzzing and blinking
     for (int i=0; i<BATTERY_OK_REPETITIONS; ++i) {
-      blink(100, 5);
 #ifdef DEBUG
       buzz(BATTERY_OK_DURATION, 0);
 #else
       siren_on(); delay(BATTERY_OK_DURATION); siren_off(); delay(100);
-#endif 
+#endif
+      blink(100, 0);
     }
   }
   return false;
@@ -306,7 +304,6 @@ long readPotentiometer(int pin) {
 void setupTask(void *)
 {
   started = true;
-  blink();
   // initialize all installed sensors
   for (int i=0; i<NUM_SENSORS; ++i) {
     sensors[i]->setup();
@@ -316,7 +313,6 @@ void setupTask(void *)
   // schedule all required tasks
   blink_task = _scheduler->timer(BLINK_DELAY, blink_and_repeat);
   alarm_task = _scheduler->timer(PERIOD_SLEEP, alarm_check);
-  calibration_task = _scheduler->timer(CALIBRATION_DELAY, calibrate_timer);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -326,9 +322,8 @@ void setupAlarmPins()
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUZ_PIN, OUTPUT);
   pinMode(SRN_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH);
-  delay(50);
   digitalWrite(LED_PIN, LOW);
+  delay(50);
 }
 
 void cancelAlarmPins()
@@ -338,9 +333,11 @@ void cancelAlarmPins()
   pinMode(SRN_PIN, INPUT);
 }
 
-void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay)
+void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay,
+                unsigned long start_sleep)
 {
-  _scheduler = sched_arg;
+  _scheduler  = sched_arg;
+  START_SLEEP = start_sleep;
   ALARM_DELAY = alarm_delay;
   started = false;
   // initialization message
@@ -370,33 +367,29 @@ void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay)
   print("TMP EPS= "); 
   println(tmp_eps);
 
+  if (!calibration_scheduled) {
+    calibration_task = _scheduler->timer(CALIBRATION_DELAY, calibrate_timer);
+    calibration_scheduled = true;
+  }
+      
   print_seconds("START.....wait ", START_SLEEP);
-  setup_task = _scheduler->timer(START_SLEEP, setupTask);
+  alarm_task = _scheduler->timer(START_SLEEP, setupTask);
 } // end SETUP
 
 void cancelAlarm() {
+  _scheduler->cancel(alarm_task);
+  temp_sensor.cancelTimer();
   if (started) {
-    if (alerting) {
-      led_off();
-      _scheduler->cancel(alarm_alert_task);
-    }
-    else {
-      _scheduler->cancel(blink_task);
-      _scheduler->cancel(alarm_task);
-      temp_sensor.cancelTimer();
-    }
-    _scheduler->cancel(calibration_task);
-  }
-  else {
-    _scheduler->cancel(setup_task);
+    if (alerting) led_off();
+    else _scheduler->cancel(blink_task);
   }
   started = false;
   for (int i=0; i<CANCEL_ALARM_REPETITIONS; ++i) {
-    blink(100, 5);
 #ifdef DEBUG
       buzz(CANCEL_ALARM_DURATION, 0);
 #else
-      siren_on(); delay(CANCEL_ALARM_DURATION); siren_off(); delay(100);
-#endif 
+      siren_on(); delay(CANCEL_ALARM_DURATION); siren_off();
+#endif
+      blink(100, 0);
   }
 }
