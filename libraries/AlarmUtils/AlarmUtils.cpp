@@ -239,8 +239,8 @@ bool check_failure_Vcc() {
   else {
     // indicates correct function by buzzing and blinking
     for (int i=0; i<BATTERY_OK_REPETITIONS; ++i) {
-#ifdef DEBUG
       blink(100, 5);
+#ifdef DEBUG
       buzz(BATTERY_OK_DURATION, 0);
 #else
       siren_on(); delay(BATTERY_OK_DURATION); siren_off(); delay(100);
@@ -392,8 +392,8 @@ void cancelAlarm() {
   }
   started = false;
   for (int i=0; i<CANCEL_ALARM_REPETITIONS; ++i) {
+    blink(100, 5);
 #ifdef DEBUG
-      blink(100, 5);
       buzz(CANCEL_ALARM_DURATION, 0);
 #else
       siren_on(); delay(CANCEL_ALARM_DURATION); siren_off(); delay(100);
