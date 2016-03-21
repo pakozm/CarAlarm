@@ -26,6 +26,7 @@ extern "C" {
 }
 #include <avr/sleep.h>
 #include <EEPROM.h>
+#include <avr/eeprom.h>
 #include <CMACGenerator.h>
 #include <RFUtils.h>
 #include <VirtualWireCPP.h>
@@ -38,6 +39,8 @@ typedef RFUtils::message_t message_t;
 
 const byte VERSION = 1; // firmware version divided by 10 e,g 16 = V1.6
 
+const int TX_REPLAY_TIME  = 1500;
+const int TX_REPLAY_DELAY =   33;
 const int KEY_SIZE = RFUtils::KEY_SIZE; // in bytes
 const uint8_t NUM_RANDOM_BITS = 2;
 const uint8_t RANDOM_BITS_MASK = (1 << NUM_RANDOM_BITS) - 1;
@@ -112,8 +115,8 @@ void pair() {
   }
   send_command(RFUtils::KEY_COMMAND, key, KEY_SIZE);
   count = 0;
-  EEPROM.write(EEPROM_ADDR, count);
-  for (int i = 0; i < KEY_SIZE; ++i) EEPROM.write(i + EEPROM_ADDR + 1, key[i]);
+  eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
+  for (int i = 0; i < KEY_SIZE; ++i) EEPROM.write(i + EEPROM_ADDR + sizeof(count), key[i]);
   blink(2000);
 }
 
@@ -140,10 +143,10 @@ void setup() {
   tx.begin();
   
   if (active_pair_button()) pairing_mode = true;
-  count = EEPROM.read(EEPROM_ADDR);
+  count = eeprom_read_dword((uint32_t*)EEPROM_ADDR);
 
   for (int i = 0; i < KEY_SIZE; ++i) {
-    key[i] = EEPROM.read(i + EEPROM_ADDR + 1);
+    key[i] = EEPROM.read(i + EEPROM_ADDR + sizeof(count));
   }
 }
 
@@ -154,12 +157,12 @@ void loop() {
   else {
     blink();
     unsigned long t0 = millis();
-    while(millis() - t0 < 4000) {
+    while(millis() - t0 < TX_REPLAY_TIME) {
       send_command(RFUtils::SWITCH_COMMAND);
-      delay(33);
+      delay(TX_REPLAY_DELAY);
     }
     ++count;
-    EEPROM.write(EEPROM_ADDR, count);
+    eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
     blink();
   }
   shutdown();
