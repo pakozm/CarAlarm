@@ -90,8 +90,8 @@ const int KEY_SIZE = RFUtils::KEY_SIZE;
 const int MAX_TASKS = 15; // maximum number of tasks for Scheduler
 const uint32_t COUNT_MAX = 0xFFFFFFFF;
 const uint32_t MAX_COUNT_DIFF = 256;
-const int RF_CHECK_PERIOD =  700; // in mili-seconds
-const int RF_WAIT_DELAY   =  300;
+const int RF_CHECK_PERIOD =  500; // in mili-seconds
+const int RF_WAIT_DELAY   =  100;
 
 TaskTimerWithHeap<MAX_TASKS> scheduler;
 
@@ -195,45 +195,51 @@ void rf_check(void *) {
   //  digitalWrite(RX_VCC_PIN, HIGH);
   VirtualWire::enable();
   rx.begin();
-  unsigned long t = millis();
-  rx.await(RF_WAIT_DELAY);
-  // while(millis() - t < RF_WAIT_DELAY && !rx.available());
-  if (rx.available()) {
-    int8_t nbytes = rx.recv((void*)buf_msg.buffer, BLOCK_SIZE);
-
-    if (Serial) {
-      for (int i = 0; i < nbytes; ++i) {
-        Serial.print(buf_msg.buffer[i]); Serial.print(" ");
+  
+  unsigned long t0 = millis();
+  do {
+    unsigned long t = millis();
+    if (t < t0 || t - t0 > RF_WAIT_DELAY) break;
+    
+    rx.await(RF_WAIT_DELAY - t - t0);
+    if (rx.available()) {
+      int8_t nbytes = rx.recv((void*)buf_msg.buffer, BLOCK_SIZE);
+  
+      if (Serial) {
+        for (int i = 0; i < nbytes; ++i) {
+          Serial.print(buf_msg.buffer[i]); Serial.print(" ");
+        }
+        if (nbytes > 0) Serial.println();
       }
-      if (nbytes > 0) Serial.println();
-    }
-
-    if (nbytes == BLOCK_SIZE &&
-        buf_msg.msg.cmd == RFUtils::SWITCH_COMMAND) {
-
-      uint32_t rx_count = buf_msg.msg.count;
-      uint32_t rx_mac = buf_msg.msg.MAC;
-      if (check_count_code(rx_count) &&
-          check_mac(rx_mac)) {
-        if (Serial) {
-          Serial.print("ARMED= "); Serial.println(!alarm_armed);
+  
+      if (nbytes == BLOCK_SIZE &&
+          buf_msg.msg.cmd == RFUtils::SWITCH_COMMAND) {
+  
+        uint32_t rx_count = buf_msg.msg.count;
+        uint32_t rx_mac = buf_msg.msg.MAC;
+        if (check_count_code(rx_count) &&
+            check_mac(rx_mac)) {
+          if (Serial) {
+            Serial.print("ARMED= "); Serial.println(!alarm_armed);
+          }
+          count = rx_count + 1; // keep track of the next count
+          eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
+          if (alarm_armed) {
+            cancelAlarm();
+            cancelAlarmPins();
+            deepSleepMode();
+          }
+          else {
+            awakeFromDeepSleep();
+            setupAlarmPins();
+            setupAlarm(&scheduler, ALARM_DELAY_MODE_RF, START_SLEEP_MODE_RF);
+          }
+          alarm_armed = !alarm_armed;
         }
-        count = rx_count + 1; // keep track of the next count
-        eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
-        if (alarm_armed) {
-          cancelAlarm();
-          cancelAlarmPins();
-          deepSleepMode();
-        }
-        else {
-          awakeFromDeepSleep();
-          setupAlarmPins();
-          setupAlarm(&scheduler, ALARM_DELAY_MODE_RF, START_SLEEP_MODE_RF);
-        }
-        alarm_armed = !alarm_armed;
       }
     }
-  }
+  } while(true);
+  
   rx.end();
   VirtualWire::disable();
   // digitalWrite(RX_VCC_PIN, LOW);
