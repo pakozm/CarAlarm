@@ -58,11 +58,6 @@
 extern "C" {
 #include <aes.h>
 }
-#include <JeeLib.h>
-  ISR(WDT_vect) {
-  Sleepy::watchdogEvent();
-  } // Setup for low power waiting
-
 #include <AlarmUtils.h>
 #include <EEPROM.h>
 #include <avr/eeprom.h>
@@ -75,6 +70,8 @@ extern "C" {
 #include <avr/wdt.h>
 #include <avr/power.h>
 #include <avr/interrupt.h>
+
+ISR(WDT_vect) { watchdogEvent(); }
 
 typedef RFUtils::message_t message_t;
 
@@ -90,8 +87,10 @@ const int KEY_SIZE = RFUtils::KEY_SIZE;
 const int MAX_TASKS = 15; // maximum number of tasks for Scheduler
 const uint32_t COUNT_MAX = 0xFFFFFFFF;
 const uint32_t MAX_COUNT_DIFF = 256;
-const int RF_CHECK_PERIOD =  500; // in mili-seconds
-const int RF_WAIT_DELAY   =  100;
+
+const int RF_CHECK_PERIOD =  1200; // in mili-seconds
+const int RF_ON_DELAY     =  1000;
+const int RF_WAIT_DELAY   =   200;
 
 TaskTimerWithHeap<MAX_TASKS> scheduler;
 
@@ -128,17 +127,17 @@ void awakeFromDeepSleep() {
   ADCSRA |= (1 << ADEN);
 }
 
-bool check_count_code(uint32_t rx_count) {
+bool check_count_code(uint32_t tx_count) {
   uint32_t diff;
-  if (rx_count < count) {
-    diff = COUNT_MAX - count + rx_count;
+  if (tx_count < count) {
+    diff = (COUNT_MAX - count) + tx_count;
   }
   else {
-    diff = rx_count - count;
+    diff = tx_count - count;
   }
   if (Serial) {
-    Serial.print("RX_COUNT "); Serial.println(rx_count);
-    Serial.print("TX_COUNT "); Serial.println(count);  
+    Serial.print("TX_COUNT "); Serial.println(tx_count);
+    Serial.print("RX_COUNT "); Serial.println(count);  
   }
   return diff < MAX_COUNT_DIFF;
 }
@@ -192,16 +191,18 @@ void pair() {
 
 void rf_check(void *) {
   if (Serial) Serial.println("RF CHECK");
-  //  digitalWrite(RX_VCC_PIN, HIGH);
+  digitalWrite(RX_VCC_PIN, HIGH);
   VirtualWire::enable();
   rx.begin();
-  
+  delay(RF_ON_DELAY);
+
+  bool received = false;
   unsigned long t0 = millis();
   do {
-    unsigned long t = millis();
-    if (t < t0 || t - t0 > RF_WAIT_DELAY) break;
-    
-    rx.await(RF_WAIT_DELAY - t - t0);
+    unsigned long diff = timeElapsedFrom(t0);
+    if (diff >= RF_WAIT_DELAY) break;
+    if (Serial) Serial.print("\tRF_WAIT= "); Serial.println(RF_WAIT_DELAY - diff);
+    rx.await(RF_WAIT_DELAY - diff);
     if (rx.available()) {
       int8_t nbytes = rx.recv((void*)buf_msg.buffer, BLOCK_SIZE);
   
@@ -214,15 +215,16 @@ void rf_check(void *) {
   
       if (nbytes == BLOCK_SIZE &&
           buf_msg.msg.cmd == RFUtils::SWITCH_COMMAND) {
-  
-        uint32_t rx_count = buf_msg.msg.count;
+
+        received = true;
+        uint32_t tx_count = buf_msg.msg.count;
         uint32_t rx_mac = buf_msg.msg.MAC;
-        if (check_count_code(rx_count) &&
+        if (check_count_code(tx_count) &&
             check_mac(rx_mac)) {
           if (Serial) {
             Serial.print("ARMED= "); Serial.println(!alarm_armed);
           }
-          count = rx_count + 1; // keep track of the next count
+          count = tx_count + 1; // keep track of the next count
           eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
           if (alarm_armed) {
             cancelAlarm();
@@ -238,11 +240,11 @@ void rf_check(void *) {
         }
       }
     }
-  } while(true);
+  } while(!received);
   
   rx.end();
   VirtualWire::disable();
-  // digitalWrite(RX_VCC_PIN, LOW);
+  digitalWrite(RX_VCC_PIN, LOW);
   rf_check_task = scheduler.timer(RF_CHECK_PERIOD, rf_check);
 }
 
@@ -281,13 +283,14 @@ void setup()
   digitalWrite(13, LOW);
   pinMode(13, INPUT);
   
-  // pinMode(RX_VCC_PIN, OUTPUT);
-  // digitalWrite(RX_VCC_PIN, LOW);
+  pinMode(RX_VCC_PIN, OUTPUT);
+  digitalWrite(RX_VCC_PIN, HIGH);
   
   setupAlarmPins();
 
   VirtualWire::begin(RFUtils::BAUD_RATE);
   VirtualWire::disable();
+  //rx.begin();
 
   Serial.begin(9600);
   delay(10);
@@ -310,6 +313,7 @@ void setup()
   setupAlarm(&scheduler, ALARM_DELAY_MODE_ON, START_SLEEP_MODE_ON);
   alarm_armed = true;
 
+  digitalWrite(RX_VCC_PIN, LOW);
   low_power_mode();
   rf_check_task = scheduler.timer(RF_CHECK_PERIOD, rf_check);
 } // end SETUP

@@ -27,11 +27,14 @@ void loop() {
   rx.await();
   if (rx.available()) {
     int8_t nbytes = rx.recv((void*)buf_msg.buffer, BLOCK_SIZE);
-    Serial.print("LEN= "); Serial.println(nbytes);
-    for (int i=0; i<nbytes; ++i) {
-      Serial.print(buf_msg.buffer[i]); Serial.print(" ");
+    if (nbytes > 0) {
+      Serial.print("LEN= "); Serial.println(nbytes);
+      for (int i=0; i<nbytes; ++i) {
+        Serial.print(buf_msg.buffer[i]); Serial.print(" ");
+      }
+      Serial.print("COUNT= "); Serial.println(buf_msg.msg.count);
+      Serial.println();
     }
-    Serial.println();
   }
   digitalWrite(13, digitalRead(RX_PIN));
 }

@@ -49,6 +49,11 @@ const id_type ALL_IDLE=-2;  ///< Indicates no jobs are pending.
  */
 void sleep(time_type ms);
 
+// Modified from jeelib/Ports.cpp Sleepy class implementation.
+unsigned long timeElapsedFrom(unsigned long a);
+void watchdogEvent();
+//////////////////////////////////////////////////////////////
+
 class TaskTimer {
 public:
   TaskTimer() {}

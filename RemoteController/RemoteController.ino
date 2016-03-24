@@ -39,8 +39,9 @@ typedef RFUtils::message_t message_t;
 
 const byte VERSION = 1; // firmware version divided by 10 e,g 16 = V1.6
 
-const int TX_REPLAY_TIME  = 1500;
-const int TX_REPLAY_DELAY =   33;
+const int TX_REPLAY_TIME  = 3000;
+const int TX_REPLAY_DELAY =    9;
+
 const int KEY_SIZE = RFUtils::KEY_SIZE; // in bytes
 const uint8_t NUM_RANDOM_BITS = 2;
 const uint8_t RANDOM_BITS_MASK = (1 << NUM_RANDOM_BITS) - 1;
@@ -143,8 +144,8 @@ void setup() {
   tx.begin();
   
   if (active_pair_button()) pairing_mode = true;
-  count = eeprom_read_dword((uint32_t*)EEPROM_ADDR);
 
+  count = eeprom_read_dword((uint32_t*)EEPROM_ADDR);
   for (int i = 0; i < KEY_SIZE; ++i) {
     key[i] = EEPROM.read(i + EEPROM_ADDR + sizeof(count));
   }
@@ -155,7 +156,7 @@ void loop() {
     pair();
   }
   else {
-    blink();
+    blink(50,50);
     unsigned long t0 = millis();
     while(millis() - t0 < TX_REPLAY_TIME) {
       send_command(RFUtils::SWITCH_COMMAND);
@@ -163,7 +164,7 @@ void loop() {
     }
     ++count;
     eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
-    blink();
+    blink(50,50);
   }
   shutdown();
 }

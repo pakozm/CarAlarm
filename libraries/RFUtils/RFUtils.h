@@ -32,7 +32,7 @@ public:
   const static int  PADDING_SIZE   = 7;  // 7 padding bytes for 16 bytes message length
   const static byte SWITCH_COMMAND = 0x01;
   const static byte KEY_COMMAND    = 0x20;
-  const static int  BAUD_RATE      = 2000;
+  const static int  BAUD_RATE      = 1000;
   
   struct message_t {
     byte padding[PADDING_SIZE];  // 7 byte
