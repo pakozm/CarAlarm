@@ -21,6 +21,16 @@
    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
    IN THE SOFTWARE.
 */
+
+/**
+ * Attiny85 PINS
+ *          ____
+ * RESET  -|    |- 5V
+ * A3 (3) -|    |- (2) A1
+ * A2 (4) -|    |- (1) PWM
+ * GND    -|____|- (0) PWM
+ * 
+ */
 extern "C" {
 #include <aes.h>
 }
@@ -39,8 +49,8 @@ typedef RFUtils::message_t message_t;
 
 const byte VERSION = 1; // firmware version divided by 10 e,g 16 = V1.6
 
-const int TX_REPLAY_TIME  = 3000;
-const int TX_REPLAY_DELAY =    9;
+const int TX_REPLAY_TIME  = 500;
+const int TX_REPLAY_DELAY =   9;
 
 const int KEY_SIZE = RFUtils::KEY_SIZE; // in bytes
 const uint8_t NUM_RANDOM_BITS = 2;
@@ -164,7 +174,7 @@ void loop() {
     }
     ++count;
     eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
-    blink(50,50);
+    //blink(50,50);
   }
   shutdown();
 }
