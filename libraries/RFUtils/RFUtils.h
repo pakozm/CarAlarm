@@ -33,6 +33,8 @@ public:
   const static byte SWITCH_COMMAND = 0x01;
   const static byte KEY_COMMAND    = 0x20;
   const static int  BAUD_RATE      = 1000;
+  // 1000 * 3600 * 24 * 5 = 432000000 = 5 days
+  const static unsigned long MAX_TIME_WO_RF = 432000000UL;
   
   struct message_t {
     byte padding[PADDING_SIZE];  // 7 byte

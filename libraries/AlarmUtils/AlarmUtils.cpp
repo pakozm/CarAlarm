@@ -81,12 +81,12 @@ const int BUZ_PIN = 11;
 const int PIR_PIN = 12;
 
 // analogic pins connection
-const int ACC_POT_PIN = 5;
-const int ACC_X_PIN   = 4;
-const int ACC_Y_PIN   = 3;
-const int ACC_Z_PIN   = 2;
-const int TMP_POT_PIN = 1;
-const int TMP_PIN     = 0;
+const int ACC_POT_PIN = A5;
+const int ACC_X_PIN   = A4;
+const int ACC_Y_PIN   = A3;
+const int ACC_Z_PIN   = A2;
+const int TMP_POT_PIN = A1;
+const int TMP_PIN     = A0;
 
 // default thresholds
 const float DEF_ACC_TH = 10.0f;
@@ -328,9 +328,11 @@ void setupAlarmPins()
 
 void cancelAlarmPins()
 {
-  pinMode(LED_PIN, INPUT);
-  pinMode(BUZ_PIN, INPUT);
-  pinMode(SRN_PIN, INPUT);
+  /*
+    pinMode(LED_PIN, INPUT_PULLUP);
+    pinMode(BUZ_PIN, INPUT_PULLUP);
+    pinMode(SRN_PIN, INPUT_PULLUP);
+  */
 }
 
 void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay,
@@ -347,9 +349,9 @@ void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay,
   println(Vcc);
   if (check_failure_Vcc()) return;
 
-  long acc_raw = readPotentiometer(TMP_POT_PIN);
+  long tmp_raw = readPotentiometer(TMP_POT_PIN);
 
-  long tmp_raw = readPotentiometer(ACC_POT_PIN);
+  long acc_raw = readPotentiometer(ACC_POT_PIN);
 
   float acc_th = (acc_raw/1023.0f)*20.0f;
   long tmp_eps = map(tmp_raw, 0, 1023, 0, 80);

@@ -68,8 +68,11 @@ extern "C" {
 #include <avr/power.h>
 #include <avr/interrupt.h>
 #include <JeeLib.h>
+#include <RFUtils.h>
 
-ISR(WDT_vect) { Sleepy::watchdogEvent(); }
+ISR(WDT_vect) {
+  Sleepy::watchdogEvent();
+}
 
 const byte VERSION = 1; // firmware version divided by 10 e,g 16 = V1.6
 
@@ -92,13 +95,20 @@ const int RX_CMD_PIN   = 8;
 
 id_type rf_check_task;
 bool alarm_armed = false;
+unsigned long millis_last_rf_packet = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
+
+unsigned long elapsedTime(unsigned long t0) {
+  unsigned long t = millis();
+  if (t < t0) return (0xFFFFFFFF - t0) + t;
+  else return t - t0;
+}
 
 void deepSleepMode() {
   ADCSRA &= ~(1 << ADEN);
   power_adc_disable();
-  
+
 }
 
 void awakeFromDeepSleep() {
@@ -119,7 +129,7 @@ void pair() {
   blink(1000);
   buzz();
   digitalWrite(RX_ACK_PIN, LOW);
-  while(digitalRead(RX_CMD_PIN) == LOW);
+  while (digitalRead(RX_CMD_PIN) == LOW);
   sendACK();
   buzz();
 }
@@ -139,13 +149,17 @@ void rf_check(void *) {
       setupAlarm(&scheduler, ALARM_DELAY_MODE_RF, START_SLEEP_MODE_RF);
     }
     alarm_armed = !alarm_armed;
+    if (Serial) {
+      Serial.print("ARMED: "); Serial.println(alarm_armed);
+    }
+    millis_last_rf_packet = millis();
   }
   rf_check_task = scheduler.timer(RF_CHECK_PERIOD, rf_check);
 }
 
 void low_power_mode()
 {
-  // Temporary clock source variable 
+  // Temporary clock source variable
   unsigned char clockSource = 0;
 
   // Disable the analog comparator by setting the ACD bit
@@ -155,12 +169,12 @@ void low_power_mode()
   if (TCCR2B & CS22) clockSource |= (1 << CS22);
   if (TCCR2B & CS21) clockSource |= (1 << CS21);
   if (TCCR2B & CS20) clockSource |= (1 << CS20);
-  
+
   // Remove the clock source to shutdown Timer2
   TCCR2B &= ~(1 << CS22);
   TCCR2B &= ~(1 << CS21);
   TCCR2B &= ~(1 << CS20);
-  
+
   power_timer2_disable();
 
   power_spi_disable();
@@ -168,21 +182,78 @@ void low_power_mode()
   power_twi_disable();
 }
 
+void shutdown() {
+  if (Serial) {
+    Serial.println("SHUTING DOWN");
+  }
+  blink(1000, 0);
+  pinMode(PRG_PIN, INPUT_PULLUP);
+  pinMode(RX_ACK_PIN, INPUT_PULLUP);
+  pinMode(RX_CMD_PIN, INPUT_PULLUP);
+  // pinMode(13, INPUT_PULLUP);
+  cancelAlarmPins();
+
+  unsigned char clockSource = 0;
+  if (TCCR2B & CS22) clockSource |= (1 << CS22);
+  if (TCCR2B & CS21) clockSource |= (1 << CS21);
+  if (TCCR2B & CS20) clockSource |= (1 << CS20);
+  // Remove the clock source to shutdown Timer2
+  TCCR2B &= ~(1 << CS22);
+  TCCR2B &= ~(1 << CS21);
+  TCCR2B &= ~(1 << CS20);
+  power_timer2_disable();
+
+  ADCSRA &= ~(1 << ADEN);
+  power_adc_disable();
+
+  power_timer1_disable();
+
+  power_timer0_disable();
+
+  power_spi_disable();
+
+  power_usart0_disable();
+
+  power_twi_disable();
+
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  cli();
+  sleep_enable();
+  sleep_bod_disable();
+  // sei();
+  sleep_cpu();
+
+  /*
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+    sleep_enable();
+    sleep_cpu();
+  */
+  //LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+  //LowPower.idle(SLEEP_FOREVER, ADC_OFF, TIMER2_OFF, TIMER1_OFF, TIMER0_OFF, SPI_OFF, USART0_OFF, TWI_OFF);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 void setup()
 {
-  pinMode(PRG_PIN, INPUT);
+  pinMode(0, OUTPUT);
+  pinMode(1, OUTPUT);
+  pinMode(2, OUTPUT);
+  pinMode(3, OUTPUT);
+  pinMode(4, OUTPUT);
+  pinMode(5, OUTPUT);
+  pinMode(6, OUTPUT);
+
+  pinMode(PRG_PIN, INPUT_PULLUP);
   pinMode(RX_ACK_PIN, OUTPUT);
   pinMode(RX_CMD_PIN, INPUT);
   pinMode(13, OUTPUT);
-  
-  digitalWrite(PRG_PIN, HIGH);
+
   digitalWrite(13, LOW);
-  pinMode(13, INPUT);
+  // pinMode(13, INPUT_PULLUP);
 
   digitalWrite(RX_ACK_PIN, HIGH);
-  
+
   setupAlarmPins();
 
   Serial.begin(9600);
@@ -192,13 +263,12 @@ void setup()
   Serial.println(VERSION * 0.1f);
   Serial.println("Francisco Zamora-Martinez (2016)");
 
-  while(digitalRead(RX_CMD_PIN) == HIGH);
+  while (digitalRead(RX_CMD_PIN) == HIGH);
   digitalWrite(RX_ACK_PIN, LOW);
 
   if (digitalRead(PRG_PIN) == LOW) {
     pair();
   }
-  digitalWrite(PRG_PIN, LOW);
 
   setupAlarm(&scheduler, ALARM_DELAY_MODE_ON, START_SLEEP_MODE_ON);
   alarm_armed = true;
@@ -209,6 +279,10 @@ void setup()
 
 void loop() {
   if (scheduler.pollWaiting() == ALL_IDLE) {
-    sleep(60000);
+    shutdown();
+  }
+  if (elapsedTime(millis_last_rf_packet) > RFUtils::MAX_TIME_WO_RF) {
+    shutdown();
   }
 }
+

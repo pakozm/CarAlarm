@@ -33,7 +33,9 @@
 
 class TemperatureSensor : public AlarmSensorWithTimer {
 public:
-  TemperatureSensor(int pin, long eps) : pin(pin), epsilon(eps) {}
+  TemperatureSensor(int pin, long eps) : pin(pin), epsilon(eps) {
+    pinMode(pin, INPUT);
+  }
 
   void setEpsilon(long eps) { epsilon = eps; }
   

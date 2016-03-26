@@ -34,6 +34,9 @@ public:
     pins[0] = x_pin;
     pins[1] = y_pin;
     pins[2] = z_pin;
+    pinMode(x_pin, INPUT);
+    pinMode(y_pin, INPUT);
+    pinMode(z_pin, INPUT);
   }
   
   void setThreshold(float th) {

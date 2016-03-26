@@ -11,6 +11,7 @@
 extern "C" {
 #include <aes.h>
 }
+#include <avr/sleep.h>
 #include <avr/power.h>
 #include <EEPROM.h>
 #include <avr/eeprom.h>
@@ -31,7 +32,10 @@ const int EEPROM_ADDR  = 0;
 const int ACK_PIN = 0;
 const int CMD_PIN = 1;
 const int RX_PIN  = 2;
+const int ON_PIN  = 3;
 const int LED_PIN = 4;
+
+unsigned long millis_last_rf_packet = 0;
 
 // Utility macros
 #define adc_disable() (ADCSRA &= ~(1<<ADEN)) // disable ADC (before power-off)
@@ -47,6 +51,12 @@ buf_msg_u buf_msg;
 
 uint32_t count = 0;
 byte key[KEY_SIZE];
+
+unsigned long elapsedTime(unsigned long t0) {
+  unsigned long t = millis();
+  if (t < t0) return (0xFFFFFFFF - t0) + t;
+  else return t - t0;
+}
 
 bool check_count_code(uint32_t tx_count) {
   uint32_t diff;
@@ -124,10 +134,23 @@ void rf_check() {
         count = tx_count + 1; // keep track of the next count
         eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
         commandAndACK();
+        millis_last_rf_packet = millis();
       }
       delay(500);
     }
   }
+}
+
+void shutdown() {
+  rx.end();
+  VirtualWire::disable();
+  pinMode(ACK_PIN, INPUT);
+  pinMode(CMD_PIN, INPUT);
+  pinMode(LED_PIN, INPUT);
+  digitalWrite(ON_PIN, LOW);
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  sleep_enable();
+  sleep_cpu();
 }
 
 void setup() {
@@ -138,9 +161,11 @@ void setup() {
   pinMode(ACK_PIN, INPUT);
   pinMode(CMD_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
+  pinMode(ON_PIN, OUTPUT);
 
   digitalWrite(CMD_PIN, HIGH);
   digitalWrite(LED_PIN, LOW);
+  digitalWrite(ON_PIN,  HIGH);
 
   blink();
   delay(10000);
@@ -165,5 +190,6 @@ void setup() {
 
 void loop() {
   rf_check();
+  if (elapsedTime(millis_last_rf_packet) > RFUtils::MAX_TIME_WO_RF) shutdown();
 }
 
