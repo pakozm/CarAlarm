@@ -22,14 +22,45 @@
    IN THE SOFTWARE.
 */
 
+/*******************************************************************************
+   Summary:
+
+   This sketch implements the logic of the remote control transmitter the alarm
+   design. This transmitter uses an Attiny85 to send data by means of TX 433MHz
+   component. A secure rolling code scheme is followed, as explained at:
+   
+   http://www.atmel.com/images/atmel-2600-avr411-secure-rolling-code-algorithm-for-wireless-link_application-note.pdf
+
+   So, this sketch relies into a rolling counter and an AES key stored both at
+   EEPROM memory of AVR chip. This sketch follows a simple algorithm which sends
+   a packet with the RFUtils::SWITCH_COMMAND, counter code and CMAC after the
+   system is started. Next, the chip enters into deep sleep mode (power down)
+   to reduce battery consumption. So, the sketch has been implemented to perform
+   RF communication every time the reset button is pressed. The transmission is
+   replayed during TX_REPLAY_TIME with a small delay of TX_REPLAY_DELAY after
+   each re-transmission.
+   
+   A particular procedure is followed during setup which allow to program the
+   AES key and send it to the receiver module. During setup, PAIR button state
+   is captured. If it is active, therefore pairing procedure is activated and
+   next the system enters in sleep mode. Otherwise, the sketch continues with
+   its normal operation and a SWITCH_COMMAND is transmitted.
+
+   Pairing procedure is acknowledged by 4 led blinks. A key is randomly produced
+   by using user interaction. PAIR button should be pressed several times to
+   produce random bits from activation/deactivation of PAIR button. Once all
+   key bytes has been produced, they are stored at the EEPROM memory besides the
+   counter value of 0. The correct operation of this procedure is indicated by
+   a led blink of 2 seconds.
+ *******************************************************************************/
+
 /**
  * Attiny85 PINS
- *          ____
- * RESET  -|    |- 5V
- * A3 (3) -|    |- (2) A1
- * A2 (4) -|    |- (1) PWM
- * GND    -|____|- (0) PWM
- * 
+ *           ____
+ * RESET   -|    |- 5V
+ * TX  (3) -|    |- (2) PAIR
+ * LED (4) -|    |- (1)
+ * GND     -|____|- (0)
  */
 extern "C" {
 #include <aes.h>
@@ -58,9 +89,9 @@ const uint8_t RANDOM_BITS_MASK = (1 << NUM_RANDOM_BITS) - 1;
 const uint8_t NUM_PUSHES_PER_BYTE = 8 / NUM_RANDOM_BITS;
 const int EEPROM_ADDR = 0;
 
-const int PAIR_PIN = 2; // dip pin 7
-const int LED_PIN  = 4; // dip pin 3
-const int TX_PIN   = 3; // dip pin 2
+const int PAIR_PIN = 2;
+const int TX_PIN   = 3;
+const int LED_PIN  = 4;
 
 VirtualWire::Transmitter tx(TX_PIN);
 uint32_t count;
@@ -122,7 +153,7 @@ void pair() {
   for (int i=0; i<4; ++i) blink();
   for (int i = 0; i < KEY_SIZE; ++i) {
     key[i] = get_random_uint8();
-    blink(10);
+    blink(10, 0);
   }
   send_command(RFUtils::KEY_COMMAND, key, KEY_SIZE);
   count = 0;

@@ -36,6 +36,15 @@
    this time the alarm starts making noise during ALARM_DURATION time. After this
    time the alarm waits REARM_DELAY before rearming alarm again.
 
+   The alarm can be armed/disarmed using a RF remote control. In this case, the
+   delay lengths are different.
+
+   The alarm disconnects after RFUtils::MAX_TIME_WO_RF milliseconds, normally
+   set to five days.
+ 
+   The normal operation of the alarm drains approx. 17 mA of power. When the
+   siren is working this power consumption increases up to 80 mA. In sleep
+   (after five days without interaction) the alarm drains 7 mA of power.
 
    Setup procedure: depending on alarm battery level the starting procedure
    changes, indicating if everything is ok to work, if the battery needs to be
@@ -49,11 +58,10 @@
    3. Very low battery is advertised by BATTERY_ERROR_REPETITIONS short buzzes
    and the system won't run.
 
-
    Change Log:
+   v0.2 2016/03/27 Updated to improve power consumption.
    v0.1 2016/03/13 First version with RF.
  *******************************************************************************/
-#define CAR_ALARM_INO
 
 extern "C" {
 #include <aes.h>
@@ -74,7 +82,9 @@ ISR(WDT_vect) {
   Sleepy::watchdogEvent();
 }
 
-const byte VERSION = 1; // firmware version divided by 10 e,g 16 = V1.6
+const byte VERSION = 2; // firmware version divided by 10 e,g 16 = V1.6
+
+const unsigned long MAX_RF_WAIT = 30000; // 30 seconds
 
 const unsigned long START_SLEEP_MODE_ON = 60000; // 60 seconds
 const unsigned long ALARM_DELAY_MODE_ON = 20000; // 20 seconds
@@ -265,11 +275,9 @@ void setup()
 
   while (digitalRead(RX_CMD_PIN) == HIGH);
   digitalWrite(RX_ACK_PIN, LOW);
-
-  if (digitalRead(PRG_PIN) == LOW) {
-    pair();
-  }
-
+  
+  if (digitalRead(PRG_PIN) == LOW) pair();
+  
   setupAlarm(&scheduler, ALARM_DELAY_MODE_ON, START_SLEEP_MODE_ON);
   alarm_armed = true;
 

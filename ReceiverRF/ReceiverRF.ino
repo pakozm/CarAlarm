@@ -1,12 +1,67 @@
-/**
-   Attiny85 PINS
-            ____
-   RESET  -|    |- 5V
-   A3 (3) -|    |- (2) A1
-   A2 (4) -|    |- (1) PWM
-   GND    -|____|- (0) PWM
+/*
+   This file is part of CarAlarm an Arduino project for a car alarm system.
 
+   Copyright (c) 2016 Francisco Zamora-Martinez (pakozm@gmail.com)
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+   IN THE SOFTWARE.
 */
+
+/*******************************************************************************
+   Summary:
+
+   This sketch implements the logic of the receiver shield for the alarm design.
+   This receiver uses an Attiny85 to filter RX 433MHz component output. A
+   secure rolling code scheme is followed, as explained at:
+   
+   http://www.atmel.com/images/atmel-2600-avr411-secure-rolling-code-algorithm-for-wireless-link_application-note.pdf
+
+   So, this sketch relies into a rolling counter and an AES key stored both at
+   EEPROM memory of AVR chip. This sketch follows a simple algorithm which
+   continuously checks RF received data, validating its CMAC and the counter
+   value. If CMAC and counter are valid, CMD pin is set HIGH and the sketch
+   waits ACK pin set to HIGH by the Arduino board. This procedure is repeated as
+   a maximum of RFUtils::MAX_TIME_WO_RF milliseconds (normally 5 days) without
+   RF interaction, going to power down mode after this time.
+
+   A particular procedure is followed during setup which allow to program the
+   AES key using the remote controller. During setup, CMD pin is set to HIGH
+   during 10 seconds. Next, the sketch waits ACK pin HIGH signal from Arduino
+   board. If the HIGH signal stills there after 200 milliseconds, pairing
+   procedure is started. In any case, the setup procedure ends with the normal
+   operation of the shield.
+
+   Pairing procedure is acknowledged by 10 led blinks. The board waits during a
+   maximum of 60 seconds for a first RF package with the RFUtils::KEY_COMMAND,
+   and another maximum of 60 seconds for a second RF package which contains the
+   new AES key produced by the remote controller. A led blink light of 1 second
+   length indicates ok reception of the key. Four led blinks separated by 250ms
+   indicate any error during pairing procedure.  
+ *******************************************************************************/
+
+/**
+ *   Attiny85 PINS
+ *             ____
+ *   RESET   -|_|  |- 5V
+ *   ON  (3) -|    |- (2) RX
+ *   LED (4) -|    |- (1) CMD
+ *   GND     -|____|- (0) ACK
+ */
 
 extern "C" {
 #include <aes.h>
@@ -60,12 +115,7 @@ unsigned long elapsedTime(unsigned long t0) {
 
 bool check_count_code(uint32_t tx_count) {
   uint32_t diff;
-  if (tx_count < count) {
-    diff = (COUNT_MAX - count) + tx_count;
-  }
-  else {
-    diff = tx_count - count;
-  }
+  diff = (tx_count<count) ? (COUNT_MAX-count)+tx_count : tx_count-count;
   return diff < MAX_COUNT_DIFF;
 }
 
@@ -114,10 +164,10 @@ void pair() {
     }
   }
   // error acknowledge
-  blink();
-  blink();
-  blink();
-  blink();
+  blink(50,200);
+  blink(50,200);
+  blink(50,200);
+  blink(50,200);
 }
 
 void rf_check() {
