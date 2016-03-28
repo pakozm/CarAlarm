@@ -99,6 +99,7 @@ const int RF_CHECK_PERIOD =  2000; // in mili-seconds
 TaskTimerWithHeap<MAX_TASKS> scheduler;
 
 // digital pins connection
+const int ACC_ON_PIN   = 2;
 const int PRG_PIN      = 3;
 const int RX_ACK_PIN   = 7;
 const int RX_CMD_PIN   = 8;
@@ -118,12 +119,13 @@ unsigned long elapsedTime(unsigned long t0) {
 void deepSleepMode() {
   ADCSRA &= ~(1 << ADEN);
   power_adc_disable();
-
+  digitalWrite(ACC_ON_PIN, LOW);
 }
 
 void awakeFromDeepSleep() {
   power_adc_enable();
   ADCSRA |= (1 << ADEN);
+  digitalWrite(ACC_ON_PIN, HIGH);
 }
 
 void sendACK() {
@@ -197,6 +199,7 @@ void shutdown() {
     Serial.println("SHUTING DOWN");
   }
   blink(1000, 0);
+  digitalWrite(ACC_ON_PIN, LOW);
   pinMode(PRG_PIN, INPUT_PULLUP);
   pinMode(RX_ACK_PIN, INPUT_PULLUP);
   pinMode(RX_CMD_PIN, INPUT_PULLUP);
@@ -232,14 +235,6 @@ void shutdown() {
   sleep_bod_disable();
   // sei();
   sleep_cpu();
-
-  /*
-    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-    sleep_enable();
-    sleep_cpu();
-  */
-  //LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
-  //LowPower.idle(SLEEP_FOREVER, ADC_OFF, TIMER2_OFF, TIMER1_OFF, TIMER0_OFF, SPI_OFF, USART0_OFF, TWI_OFF);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -248,17 +243,18 @@ void setup()
 {
   pinMode(0, OUTPUT);
   pinMode(1, OUTPUT);
-  pinMode(2, OUTPUT);
   pinMode(3, OUTPUT);
   pinMode(4, OUTPUT);
   pinMode(5, OUTPUT);
   pinMode(6, OUTPUT);
 
+  pinMode(ACC_ON_PIN, OUTPUT);
   pinMode(PRG_PIN, INPUT_PULLUP);
   pinMode(RX_ACK_PIN, OUTPUT);
   pinMode(RX_CMD_PIN, INPUT);
   pinMode(13, OUTPUT);
 
+  digitalWrite(ACC_ON_PIN, HIGH);
   digitalWrite(13, LOW);
   // pinMode(13, INPUT_PULLUP);
 
