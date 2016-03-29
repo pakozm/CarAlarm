@@ -1,0 +1,45 @@
+
+<svg
+    width="30mm" height="21mm" viewBox="0 0 3000 2100" id="CR2032"
+    version="1.1"
+    xmlns="http://www.w3.org/2000/svg"
+    xmlns:xlink="http://www.w3.org/1999/xlink">
+    <g id="Layer1">
+      <g id="silkscreen">
+        <line
+            style="fill:none;stroke:#000000;stroke-width:40"
+            x1="694.85" y1="1050" x2="894.85" y2="1050"/>
+        <line
+            style="fill:none;stroke:#000000;stroke-width:40"
+            x1="2094.85" y1="1050" x2="2294.85" y2="1050"/>
+        <line
+            style="fill:none;stroke:#000000;stroke-width:40"
+            x1="2194.85" y1="950" x2="2194.85" y2="1150"/>
+        <circle
+            style="fill:none;stroke:#000000;stroke-width:20"
+            cx="1494.85" cy="1050" r="1000"/>
+        <rect
+            style="fill:none;stroke:#000000;stroke-width:20"
+            x="220" y="950" height="200" width="264.85"/>
+        <rect
+            style="fill:none;stroke:#000000;stroke-width:20"
+            x="2494.85" y="950" height="200" width="264.85"/>
+      </g>
+      <g id="copper1">
+        <g id="copper0">
+          <rect
+              style="fill:none;stroke:#FFBF00;stroke-width:50.8"
+              x="50" y="980" height="140" width="140"/>
+          <circle id="connector0pin"
+                  style="fill:none;stroke:#FFBF00;stroke-width:50.8"
+                  cx="119.85" cy="1050" r="69.85"/>
+          <circle id="connector1pin"
+                  style="fill:none;stroke:#FFBF00;stroke-width:50.8"
+                  cx="2869.85" cy="1175" r="69.85"/>
+          <circle id="connector1pin"
+                  style="fill:none;stroke:#FFBF00;stroke-width:50.8"
+                  cx="2869.85" cy="925" r="69.85"/>
+        </g>
+      </g>
+    </g>
+</svg>
