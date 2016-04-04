@@ -69,8 +69,8 @@ const int BATTERY_ALERT_DURATION    = 50; // 50 ms
 const int BATTERY_ERROR_REPETITIONS = 10;
 const int BATTERY_ERROR_DURATION    = 50; // 50 ms
 
-const long VCC_ALERT = 4600; // mili-volts
-const long VCC_ERROR = 4300; // mili-volts
+const long VCC_ALERT = 4400; // mili-volts
+const long VCC_ERROR = 4200; // mili-volts
 
 const int NUM_SENSORS = 3;
 

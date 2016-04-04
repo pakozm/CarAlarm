@@ -226,7 +226,7 @@ void setup() {
   digitalWrite(CMD_PIN, LOW);
   while (digitalRead(ACK_PIN) == HIGH);
   blink();
-  delay(200);
+  delay(100);
   if (digitalRead(ACK_PIN) == HIGH) {
     pair();
     commandAndACK();
