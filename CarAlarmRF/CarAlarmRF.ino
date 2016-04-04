@@ -116,13 +116,13 @@ unsigned long elapsedTime(unsigned long t0) {
   else return t - t0;
 }
 
-void deepSleepMode() {
+void lowPowerMode() {
   ADCSRA &= ~(1 << ADEN);
   power_adc_disable();
   digitalWrite(ACC_ON_PIN, LOW);
 }
 
-void awakeFromDeepSleep() {
+void normalPowerMode() {
   power_adc_enable();
   ADCSRA |= (1 << ADEN);
   digitalWrite(ACC_ON_PIN, HIGH);
@@ -150,13 +150,14 @@ void rf_check(void *) {
   if (Serial) Serial.println("RF CHECK");
   if (digitalRead(RX_CMD_PIN) == HIGH) {
     sendACK();
-    if (alarm_armed) {
+    if (alarm_armed) { // disarm
       cancelAlarm();
       cancelAlarmPins();
-      deepSleepMode();
+      scheduler.clear();
+      lowPowerMode();
     }
-    else {
-      awakeFromDeepSleep();
+    else { // arm
+      normalPowerMode();
       setupAlarmPins();
       setupAlarm(&scheduler, ALARM_DELAY_MODE_RF, START_SLEEP_MODE_RF);
     }
@@ -169,7 +170,7 @@ void rf_check(void *) {
   rf_check_task = scheduler.timer(RF_CHECK_PERIOD, rf_check);
 }
 
-void low_power_mode()
+void configure_power()
 {
   // Temporary clock source variable
   unsigned char clockSource = 0;
@@ -235,6 +236,7 @@ void shutdown() {
   sleep_bod_disable();
   // sei();
   sleep_cpu();
+  // we never returns from here
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -277,7 +279,7 @@ void setup()
   setupAlarm(&scheduler, ALARM_DELAY_MODE_ON, START_SLEEP_MODE_ON);
   alarm_armed = true;
 
-  low_power_mode();
+  configure_power();
   rf_check_task = scheduler.timer(RF_CHECK_PERIOD, rf_check);
 } // end SETUP
 
@@ -286,7 +288,7 @@ void loop() {
     shutdown();
   }
   if (elapsedTime(millis_last_rf_packet) > RFUtils::MAX_TIME_WO_RF) {
+    scheduler.clear();
     shutdown();
   }
 }
-

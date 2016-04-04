@@ -63,6 +63,7 @@ public:
   virtual id_type timer(time_type ms, func_type func, void *arg=0)=0;
   virtual void cancel(id_type id)=0;
   virtual void run(id_type id)=0;
+  virtual void clear()=0;
 };
 
 /**
@@ -105,6 +106,9 @@ public:
 
   /// Executes the given task canceling it.
   void run(id_type id);
+
+  /// Removes all available tasks.
+  void clear();
   
 private:
   /// Traverses heap tasks until next one not cancelled.
@@ -218,7 +222,7 @@ id_type TaskTimerWithHeap<MAX>::timer(time_type ms, func_type func, void *arg) {
 // cancel a task timer
 template<char MAX>
 void TaskTimerWithHeap<MAX>::cancel(id_type id) {
-  if (tasks_heap.top() == id) {
+  if (!tasks_heap.empty() && tasks_heap.top() == id) {
     ids_stack.push( tasks_heap.top() );
     tasks_heap.pop();
   }
@@ -267,6 +271,16 @@ void TaskTimerWithHeap<MAX>::movePendingToHeap() {
       pending_stack.pop();
     }
     removeCancelledTasks();
+  }
+}
+
+template<char MAX>
+void TaskTimerWithHeap<MAX>::clear() {
+  pending_stack.clear();
+  tasks_heap.clear();
+  ids_stack.clear();
+  for (int i=0; i<MAX; ++i) {
+    ids_stack.push(i);
   }
 }
 

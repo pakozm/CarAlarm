@@ -30,6 +30,7 @@
 #include <avr/interrupt.h>
 
 // #define DEBUG
+// #define ACTIVATE_CALIBRATION_TASK
 
 #include "AlarmUtils.h"
 #include "AlarmSensor.h"
@@ -286,12 +287,14 @@ void alarm_check(void *)
   
 }
 
+#ifdef ACTIVATE_CALIBRATION_TASK
 void calibrate_timer(void *) {
   long Vcc = SensorUtils::calibrateVcc(REF_CAL);
   print("Vcc= "); 
   println(Vcc);
   calibration_task = _scheduler->timer(CALIBRATION_DELAY, calibrate_timer);
 }
+#endif
 
 long readPotentiometer(int pin) {
   analogRead(pin);
@@ -369,11 +372,13 @@ void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay,
   print("TMP EPS= "); 
   println(tmp_eps);
 
+#ifdef ACTIVATE_CALIBRATION_TASK
   if (!calibration_scheduled) {
     calibration_task = _scheduler->timer(CALIBRATION_DELAY, calibrate_timer);
     calibration_scheduled = true;
   }
-      
+#endif
+  
   print_seconds("START.....wait ", START_SLEEP);
   alarm_task = _scheduler->timer(START_SLEEP, setupTask);
 } // end SETUP

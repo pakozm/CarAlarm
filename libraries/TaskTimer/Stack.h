@@ -41,6 +41,10 @@ public:
   int capacity() const;
   /// Indicates if the stack is empty.
   bool empty() const { return sz==0; }
+  /// Clears the stack.
+  void clear() {
+    sz = 0;
+  }
   
 private:
   int sz; ///< Number of elements.

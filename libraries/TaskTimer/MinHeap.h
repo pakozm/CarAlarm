@@ -50,6 +50,10 @@ public:
   int capacity() const;
   /// Indicates if the heap is empty.
   bool empty() const { return sz==0; }
+  /// Clears the heap.
+  void clear() {
+    sz = 0;
+  }
   
 private:
   int sz; ///< Number of elements.
