@@ -96,6 +96,7 @@ long Vcc; // in mili-volts
 TaskTimer *_scheduler;
 id_type alarm_task, blink_task, calibration_task;
 bool started = false, alerting = false, calibration_scheduled = false;
+bool started_alert = false;
 unsigned long t0;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -174,7 +175,6 @@ void buzz(unsigned long ms, unsigned long post_ms) {
   delay(post_ms);
 }
 
-bool started_alert = false;
 void alarmAlertTask(void *)
 {
   led_off();
@@ -386,6 +386,8 @@ void cancelAlarm() {
     else _scheduler->cancel(blink_task);
   }
   started = false;
+  alerting = false;
+  started_alert = false;
   for (int i=0; i<CANCEL_ALARM_REPETITIONS; ++i) {
 #ifdef DEBUG
       buzz(CANCEL_ALARM_DURATION, 0);
