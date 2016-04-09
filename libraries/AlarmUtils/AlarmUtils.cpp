@@ -76,6 +76,7 @@ const long VCC_ERROR = 4200; // mili-volts
 const int NUM_SENSORS = 3;
 
 // digital pins connection
+const int ACC_ON_PIN = 2;
 const int LED_PIN = 9;
 const int SRN_PIN = 10;
 const int BUZ_PIN = 11;
@@ -88,6 +89,8 @@ const int ACC_Y_PIN   = A3;
 const int ACC_Z_PIN   = A2;
 const int TMP_POT_PIN = A1;
 const int TMP_PIN     = A0;
+
+const unsigned int BUZ_TONE = 440; // A
 
 // default thresholds
 const float DEF_ACC_TH = 10.0f;
@@ -144,14 +147,6 @@ void led_off() {
   digitalWrite(LED_PIN, LOW);
 }
 
-void buzzer_on() {
-  digitalWrite(BUZ_PIN, HIGH);
-}
-
-void buzzer_off() {
-  digitalWrite(BUZ_PIN, LOW);
-}
-
 void siren_on() {
   digitalWrite(SRN_PIN, HIGH);
 }
@@ -170,9 +165,9 @@ void blink(unsigned long ms, unsigned long post_ms) {
 }
 
 void buzz(unsigned long ms, unsigned long post_ms) {
-  buzzer_on(); 
+  tone(BUZ_PIN, BUZ_TONE);
   delay(ms);
-  buzzer_off(); 
+  noTone(BUZ_PIN);
   delay(post_ms);
 }
 
@@ -266,7 +261,8 @@ void rearm_alarm(void *) {
 void alarm_check(void *)
 {
   int i, activity_detected=0;
-
+  digitalWrite(ACC_ON_PIN, HIGH);
+  sleep(50);
   for (i=0; i<NUM_SENSORS; ++i) {
     if (sensors[i]->checkActivity()) {
       print("Activity at sensor: ");
@@ -274,6 +270,7 @@ void alarm_check(void *)
       activity_detected = 1;
     }
   }
+  digitalWrite(ACC_ON_PIN, LOW);
   if (activity_detected) {
     alarmAlert();
   }
@@ -323,9 +320,10 @@ void setupTask(void *)
 void setupAlarmPins()
 {
   pinMode(LED_PIN, OUTPUT);
-  pinMode(BUZ_PIN, OUTPUT);
   pinMode(SRN_PIN, OUTPUT);
+  pinMode(ACC_ON_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
+  digitalWrite(ACC_ON_PIN, LOW);
   delay(50);
 }
 
@@ -336,6 +334,7 @@ void cancelAlarmPins()
     pinMode(BUZ_PIN, INPUT_PULLUP);
     pinMode(SRN_PIN, INPUT_PULLUP);
   */
+  digitalWrite(ACC_ON_PIN, LOW);
 }
 
 void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay,
@@ -352,9 +351,9 @@ void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay,
   println(Vcc);
   if (check_failure_Vcc()) return;
 
-  long tmp_raw = readPotentiometer(TMP_POT_PIN);
+  long tmp_raw = 800; //readPotentiometer(TMP_POT_PIN);
 
-  long acc_raw = readPotentiometer(ACC_POT_PIN);
+  long acc_raw = 800; //readPotentiometer(ACC_POT_PIN);
 
   float acc_th = (acc_raw/1023.0f)*20.0f;
   long tmp_eps = map(tmp_raw, 0, 1023, 0, 80);

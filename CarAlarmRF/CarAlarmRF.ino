@@ -41,7 +41,7 @@
 
    The alarm disconnects after RFUtils::MAX_TIME_WO_RF milliseconds, normally
    set to five days.
- 
+
    The normal operation of the alarm drains approx. 17 mA of power. When the
    siren is working this power consumption increases up to 80 mA. In sleep
    (after five days without interaction) the alarm drains 7 mA of power.
@@ -99,7 +99,6 @@ const int RF_CHECK_PERIOD =  2000; // in mili-seconds
 TaskTimerWithHeap<MAX_TASKS> scheduler;
 
 // digital pins connection
-const int ACC_ON_PIN   = 2;
 const int PRG_PIN      = 3;
 const int RX_ACK_PIN   = 7;
 const int RX_CMD_PIN   = 8;
@@ -119,13 +118,11 @@ unsigned long elapsedTime(unsigned long t0) {
 void lowPowerMode() {
   ADCSRA &= ~(1 << ADEN);
   power_adc_disable();
-  digitalWrite(ACC_ON_PIN, LOW);
 }
 
 void normalPowerMode() {
   power_adc_enable();
   ADCSRA |= (1 << ADEN);
-  digitalWrite(ACC_ON_PIN, HIGH);
 }
 
 void sendACK() {
@@ -200,7 +197,6 @@ void shutdown() {
     Serial.println("SHUTING DOWN");
   }
   blink(1000, 0);
-  digitalWrite(ACC_ON_PIN, LOW);
   pinMode(PRG_PIN, INPUT_PULLUP);
   pinMode(RX_ACK_PIN, INPUT_PULLUP);
   pinMode(RX_CMD_PIN, INPUT_PULLUP);
@@ -250,13 +246,11 @@ void setup()
   pinMode(5, OUTPUT);
   pinMode(6, OUTPUT);
 
-  pinMode(ACC_ON_PIN, OUTPUT);
   pinMode(PRG_PIN, INPUT_PULLUP);
   pinMode(RX_ACK_PIN, OUTPUT);
   pinMode(RX_CMD_PIN, INPUT);
   pinMode(13, OUTPUT);
 
-  digitalWrite(ACC_ON_PIN, HIGH);
   digitalWrite(13, LOW);
   // pinMode(13, INPUT_PULLUP);
 
@@ -267,15 +261,15 @@ void setup()
   Serial.begin(9600);
   delay(500);
   while (!Serial); // wait for Leonardo
-  Serial.print("CarAlarmRF V");
+  Serial.print("# CarAlarmRF V");
   Serial.println(VERSION * 0.1f);
-  Serial.println("Francisco Zamora-Martinez (2016)");
+  Serial.println("# Francisco Zamora-Martinez (2016)");
 
   while (digitalRead(RX_CMD_PIN) == HIGH);
   digitalWrite(RX_ACK_PIN, LOW);
-  
+
   if (digitalRead(PRG_PIN) == LOW) pair();
-  
+
   setupAlarm(&scheduler, ALARM_DELAY_MODE_ON, START_SLEEP_MODE_ON);
   alarm_armed = true;
 

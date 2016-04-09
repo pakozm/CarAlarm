@@ -53,6 +53,8 @@ public:
     axpy(vec, -1.0f, m_refs);
     square(vec);
     float s = sum(vec);
+    print(vec); Serial.println("");
+    print(m_refs); Serial.println("");
     if (Serial) {
       if (s > threshold2) {
         Serial.print("     sum= ");
