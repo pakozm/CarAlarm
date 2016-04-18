@@ -37,7 +37,8 @@ extern void delay(unsigned long ms);
 
 void sleep(time_type ms) {
   if (ms > 30) {
-    Sleepy::loseSomeTime(ms);
+    if (ms > 65535) Sleepy::loseSomeTime(65535);
+    else Sleepy::loseSomeTime(ms);
     // delay(ms);
   }
   else {

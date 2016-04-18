@@ -46,7 +46,7 @@ public:
     ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
 #endif  
 
-    delay(2); // Wait for Vref to settle
+    delayMicroseconds(2000); // Wait for Vref to settle (2ms)
     ADCSRA |= _BV(ADSC); // Start conversion
     while (bit_is_set(ADCSRA,ADSC)); // measuring
 

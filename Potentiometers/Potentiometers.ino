@@ -25,8 +25,8 @@
 #include <SensorUtils.h>
 
 // analogic pins connection
-const int POT_0_PIN = 0;
-const int POT_1_PIN = 1;
+const int POT_0_PIN = A1;
+const int POT_1_PIN = A5;
 
 ///////////////////////////////////////////////////////////////////////////////
 

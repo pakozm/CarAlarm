@@ -59,6 +59,7 @@
    and the system won't run.
 
    Change Log:
+   v0.3 2016/04/18 Added PCINT0 interrupt handler for RX shield comm.
    v0.2 2016/03/27 Updated to improve power consumption.
    v0.1 2016/03/13 First version with RF.
  *******************************************************************************/
@@ -82,29 +83,25 @@ ISR(WDT_vect) {
   Sleepy::watchdogEvent();
 }
 
-const byte VERSION = 2; // firmware version divided by 10 e,g 16 = V1.6
-
-const unsigned long MAX_RF_WAIT = 30000; // 30 seconds
+const byte VERSION = 3; // firmware version divided by 10 e,g 16 = V1.6
 
 const unsigned long START_SLEEP_MODE_ON = 60000; // 60 seconds
 const unsigned long ALARM_DELAY_MODE_ON = 20000; // 20 seconds
 
-const unsigned long START_SLEEP_MODE_RF =  5000; // in mili-seconds
-const unsigned long ALARM_DELAY_MODE_RF =  5000; // in mili-seconds
+const unsigned long START_SLEEP_MODE_RF =  1000; // in mili-seconds
+const unsigned long ALARM_DELAY_MODE_RF =  1000; // in mili-seconds
 
-const int MAX_TASKS = 15; // maximum number of tasks for Scheduler
+const unsigned long ALL_IDLE_SLEEP_LENGTH = 60000; // in mili-seconds
 
-const int RF_CHECK_PERIOD =  2000; // in mili-seconds
-
-TaskTimerWithHeap<MAX_TASKS> scheduler;
+TaskTimerWithHeap<20> scheduler;
 
 // digital pins connection
 const int PRG_PIN      = 3;
 const int RX_ACK_PIN   = 7;
 const int RX_CMD_PIN   = 8;
 
-id_type rf_check_task;
 bool alarm_armed = false;
+volatile bool do_rf_check = false;
 unsigned long millis_last_rf_packet = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -116,13 +113,13 @@ unsigned long elapsedTime(unsigned long t0) {
 }
 
 void lowPowerMode() {
-  ADCSRA &= ~(1 << ADEN);
-  power_adc_disable();
+    ADCSRA &= ~(1 << ADEN);
+    power_adc_disable();
 }
 
 void normalPowerMode() {
-  power_adc_enable();
-  ADCSRA |= (1 << ADEN);
+    power_adc_enable();
+    ADCSRA |= (1 << ADEN);
 }
 
 void sendACK() {
@@ -143,28 +140,25 @@ void pair() {
   buzz();
 }
 
-void rf_check(void *) {
+void rf_check() {
   if (Serial) Serial.println("RF CHECK");
-  if (digitalRead(RX_CMD_PIN) == HIGH) {
-    sendACK();
-    if (alarm_armed) { // disarm
-      cancelAlarm();
-      cancelAlarmPins();
-      scheduler.clear();
-      lowPowerMode();
-    }
-    else { // arm
-      normalPowerMode();
-      setupAlarmPins();
-      setupAlarm(&scheduler, ALARM_DELAY_MODE_RF, START_SLEEP_MODE_RF);
-    }
-    alarm_armed = !alarm_armed;
-    if (Serial) {
-      Serial.print("ARMED: "); Serial.println(alarm_armed);
-    }
-    millis_last_rf_packet = millis();
+  sendACK();
+  if (alarm_armed) { // disarm
+    cancelAlarm();
+    cancelAlarmPins();
+    scheduler.clear();
+    lowPowerMode();
   }
-  rf_check_task = scheduler.timer(RF_CHECK_PERIOD, rf_check);
+  else { // arm
+    normalPowerMode();
+    setupAlarmPins();
+    setupAlarm(&scheduler, ALARM_DELAY_MODE_RF, START_SLEEP_MODE_RF);
+  }
+  alarm_armed = !alarm_armed;
+  if (Serial) {
+    Serial.print("ARMED: "); Serial.println(alarm_armed);
+  }
+  millis_last_rf_packet = millis();
 }
 
 void configure_power()
@@ -235,6 +229,18 @@ void shutdown() {
   // we never returns from here
 }
 
+ISR(PCINT0_vect) {
+  if (Serial) Serial.println("PCINT0");
+  if (digitalRead(RX_CMD_PIN) == HIGH) do_rf_check = true;
+}
+
+void initialiseInterrupt(){
+  cli();		// switch interrupts off while messing with their settings  
+  PCICR |= 0b00000001;  // Enable Port B interrupts
+  PCMSK0 |= 0b00000001; // Enable PB0, which is PCINT0, physical pin 14, digital pin 8 (RX_CMD_PIN)
+  sei();		// turn interrupts back on
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 void setup()
@@ -274,15 +280,23 @@ void setup()
   alarm_armed = true;
 
   configure_power();
-  rf_check_task = scheduler.timer(RF_CHECK_PERIOD, rf_check);
+  initialiseInterrupt();
 } // end SETUP
 
 void loop() {
-  if (scheduler.pollWaiting() == ALL_IDLE) {
-    shutdown();
+  if (Serial) Serial.println("LOOP");
+  id_type id = scheduler.pollWaiting();
+  if (do_rf_check) {
+    rf_check();
+    do_rf_check = false;  
+  }
+  else if (id == ALL_IDLE) {
+    if (Serial) Serial.println("ALL_IDLE");
+    sleep(ALL_IDLE_SLEEP_LENGTH);
   }
   if (elapsedTime(millis_last_rf_packet) > RFUtils::MAX_TIME_WO_RF) {
     scheduler.clear();
     shutdown();
   }
 }
+

@@ -36,10 +36,10 @@ const int LED_PIN = 9;
 const int PIR_PIN = 12;
 
 // analogic pins connection
-const int ACC_X_PIN = 2;
-const int ACC_Y_PIN = 3;
-const int ACC_Z_PIN = 4;
-const int TMP_PIN  = 0;
+const int ACC_X_PIN = A2;
+const int ACC_Y_PIN = A3;
+const int ACC_Z_PIN = A4;
+const int TMP_PIN  = A0;
 
 long Vcc; // in mili-volts
 
@@ -99,14 +99,6 @@ void led_off() {
   digitalWrite(LED_PIN, LOW);
 }
 
-void buzzer_on() {
-  digitalWrite(BUZ_PIN, HIGH);
-}
-
-void buzzer_off() {
-  digitalWrite(BUZ_PIN, LOW);
-}
-
 /////////////////////////////////////////////////////////////////////////////
 
 void blink(unsigned long ms=100, unsigned long post_ms=200) {
@@ -117,10 +109,10 @@ void blink(unsigned long ms=100, unsigned long post_ms=200) {
 }
 
 void buzz(unsigned long ms=100, unsigned long post_ms=200) {
-  buzzer_on(); 
+  tone(BUZ_PIN, 440);
   delay(ms);
-  buzzer_off(); 
-  delay(post_ms);
+  noTone(BUZ_PIN);
+  delay(post_ms);  
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -131,7 +123,9 @@ void setup()
   pinMode(BUZ_PIN, OUTPUT);
   pinMode(PIR_PIN, INPUT);
   pinMode(13, OUTPUT);
-
+  pinMode(2, OUTPUT);
+  
+  digitalWrite(2, HIGH);
   digitalWrite(13, LOW);
   // initialization message
   digitalWrite(LED_PIN, HIGH);

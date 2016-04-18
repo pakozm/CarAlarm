@@ -28,9 +28,11 @@
 #include <avr/wdt.h>
 #include <avr/power.h>
 #include <avr/interrupt.h>
+#include <util/atomic.h>
 
 // #define DEBUG
 // #define ACTIVATE_CALIBRATION_TASK
+#define USE_TEMP_SENSOR
 
 #include "AlarmUtils.h"
 #include "AlarmSensor.h"
@@ -44,7 +46,9 @@ const unsigned long PERIOD_SLEEP =  1000; // 1000 ms
 const unsigned long BLINK_DELAY  = 30000; // 30 seconds
 
 const unsigned long CALIBRATION_DELAY  = 900000; // 15 minutes
+#ifdef USE_TEMP_SENSOR
 const unsigned long TEMPERATURE_PERIOD =  10000; // 10 second
+#endif
 
 #ifdef DEBUG
 unsigned long START_SLEEP          =  1000; // 1 seconds
@@ -73,7 +77,11 @@ const int BATTERY_ERROR_DURATION    = 50; // 50 ms
 const long VCC_ALERT = 4400; // mili-volts
 const long VCC_ERROR = 4200; // mili-volts
 
+#ifdef USE_TEMP_SENSOR
 const int NUM_SENSORS = 3;
+#else
+const int NUM_SENSORS = 2;
+#endif
 
 // digital pins connection
 const int ACC_ON_PIN = 2;
@@ -84,17 +92,21 @@ const int PIR_PIN = 12;
 
 // analogic pins connection
 const int ACC_POT_PIN = A5;
-const int ACC_X_PIN   = A4;
+const int ACC_Z_PIN   = A4;
 const int ACC_Y_PIN   = A3;
-const int ACC_Z_PIN   = A2;
+const int ACC_X_PIN   = A2;
+#ifdef USE_TEMP_SENSOR
 const int TMP_POT_PIN = A1;
 const int TMP_PIN     = A0;
+#endif
 
 const unsigned int BUZ_TONE = 440; // A
 
 // default thresholds
 const float DEF_ACC_TH = 10.0f;
+#ifdef USE_TEMP_SENSOR
 const long DEF_TMP_EPS = 20;   // 2C
+#endif
 
 long Vcc; // in mili-volts
 TaskTimer *_scheduler;
@@ -107,12 +119,17 @@ unsigned long t0;
 
 AccelerometerSensor acc_sensor(ACC_X_PIN, ACC_Y_PIN, ACC_Z_PIN, DEF_ACC_TH);
 PIRSensor pir_sensor(PIR_PIN);
+#ifdef USE_TEMP_SENSOR
 TemperatureSensor temp_sensor(TMP_PIN, DEF_TMP_EPS);
+#endif
 
 AlarmSensor *sensors[NUM_SENSORS] = { 
   &acc_sensor,
-  &pir_sensor,
-  &temp_sensor };
+  &pir_sensor
+#ifdef USE_TEMP_SENSOR
+  , &temp_sensor
+#endif
+};
 
 template<typename T> void print(const T &obj);
 template<typename T> void println(const T &obj);
@@ -193,7 +210,9 @@ void alarmAlertTask(void *)
     print_seconds("ALARM rearm in", REARM_DELAY);
     blink_task = _scheduler->timer(BLINK_DELAY, blink_and_repeat);
     alarm_task = _scheduler->timer(REARM_DELAY, rearm_alarm);
+#ifdef USE_TEMP_SENSOR
     temp_sensor.registerTimer(_scheduler, TEMPERATURE_PERIOD);
+#endif
   }
 }
 
@@ -205,7 +224,9 @@ void alarmAlert() {
   started_alert = false;
   alarm_task = _scheduler->timer(ALARM_DELAY, alarmAlertTask);
   _scheduler->cancel(blink_task);
+#ifdef USE_TEMP_SENSOR
   temp_sensor.cancelTimer();
+#endif
 }
 
 bool check_failure_Vcc() {
@@ -261,8 +282,6 @@ void rearm_alarm(void *) {
 void alarm_check(void *)
 {
   int i, activity_detected=0;
-  digitalWrite(ACC_ON_PIN, HIGH);
-  sleep(50);
   for (i=0; i<NUM_SENSORS; ++i) {
     if (sensors[i]->checkActivity()) {
       print("Activity at sensor: ");
@@ -270,7 +289,6 @@ void alarm_check(void *)
       activity_detected = 1;
     }
   }
-  digitalWrite(ACC_ON_PIN, LOW);
   if (activity_detected) {
     alarmAlert();
   }
@@ -308,8 +326,11 @@ void setupTask(void *)
   for (int i=0; i<NUM_SENSORS; ++i) {
     sensors[i]->setup();
   }
-    // register timer-based sensors
+  // digitalWrite(ACC_ON_PIN, LOW);
+  // register timer-based sensors
+#ifdef USE_TEMP_SENSOR
   temp_sensor.registerTimer(_scheduler, TEMPERATURE_PERIOD);
+#endif
   // schedule all required tasks
   blink_task = _scheduler->timer(BLINK_DELAY, blink_and_repeat);
   alarm_task = _scheduler->timer(PERIOD_SLEEP, alarm_check);
@@ -321,10 +342,9 @@ void setupAlarmPins()
 {
   pinMode(LED_PIN, OUTPUT);
   pinMode(SRN_PIN, OUTPUT);
-  pinMode(ACC_ON_PIN, OUTPUT);
+  // pinMode(ACC_ON_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
-  digitalWrite(ACC_ON_PIN, LOW);
-  delay(50);
+  // digitalWrite(ACC_ON_PIN, HIGH);
 }
 
 void cancelAlarmPins()
@@ -334,7 +354,7 @@ void cancelAlarmPins()
     pinMode(BUZ_PIN, INPUT_PULLUP);
     pinMode(SRN_PIN, INPUT_PULLUP);
   */
-  digitalWrite(ACC_ON_PIN, LOW);
+  // digitalWrite(ACC_ON_PIN, LOW);
 }
 
 void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay,
@@ -351,25 +371,32 @@ void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay,
   println(Vcc);
   if (check_failure_Vcc()) return;
 
-  long tmp_raw = 800; //readPotentiometer(TMP_POT_PIN);
-
-  long acc_raw = 800; //readPotentiometer(ACC_POT_PIN);
-
-  float acc_th = (acc_raw/1023.0f)*20.0f;
+#ifdef USE_TEMP_SENSOR
+  long tmp_raw = readPotentiometer(TMP_POT_PIN);
   long tmp_eps = map(tmp_raw, 0, 1023, 0, 80);
-
+#endif
+  
+  long acc_raw = readPotentiometer(ACC_POT_PIN);
+  float acc_th = (acc_raw/1023.0f)*20.0f;
+  
   acc_sensor.setThreshold(acc_th);
+#ifdef USE_TEMP_SENSOR
   temp_sensor.setEpsilon(tmp_eps);
+#endif
 
   print("ACC RAW= "); 
   println(acc_raw);
+#ifdef USE_TEMP_SENSOR
   print("TMP RAW= "); 
   println(tmp_raw);
+#endif
 
   print("ACC TH=  "); 
   println(acc_th);
+#ifdef USE_TEMP_SENSOR
   print("TMP EPS= "); 
   println(tmp_eps);
+#endif
 
 #ifdef ACTIVATE_CALIBRATION_TASK
   if (!calibration_scheduled) {
@@ -384,7 +411,9 @@ void setupAlarm(TaskTimer *sched_arg, unsigned long alarm_delay,
 
 void cancelAlarm() {
   _scheduler->cancel(alarm_task);
+#ifdef USE_TEMP_SENSOR
   temp_sensor.cancelTimer();
+#endif
   if (started) {
     if (alerting) led_off();
     else _scheduler->cancel(blink_task);
