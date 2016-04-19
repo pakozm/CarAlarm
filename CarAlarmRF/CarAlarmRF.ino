@@ -37,7 +37,11 @@
    time the alarm waits REARM_DELAY before rearming alarm again.
 
    The alarm can be armed/disarmed using a RF remote control. In this case, the
-   delay lengths are different.
+   delay lengths are different. PCINT0 interrupt is used to detect activity in
+   RF. A specific shield with an ATtiny85 IC continuously listens for activity
+   in 433MHz RF band. When validated activity is detected (remote control
+   message is received) this shields activates HIGH a pin in PCINT0 group of
+   the Arduino Atmega328.
 
    The alarm disconnects after RFUtils::MAX_TIME_WO_RF milliseconds, normally
    set to five days.
