@@ -32,7 +32,7 @@
 
 // #define DEBUG
 // #define ACTIVATE_CALIBRATION_TASK
-#define USE_TEMP_SENSOR
+// #define USE_TEMP_SENSOR
 
 #include "AlarmUtils.h"
 #include "AlarmSensor.h"

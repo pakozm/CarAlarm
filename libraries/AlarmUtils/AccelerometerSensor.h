@@ -50,11 +50,12 @@ public:
   virtual bool checkActivity() {
     float vec[3];
     readData(vec);
+    print(vec); if (Serial) Serial.println("");
     axpy(vec, -1.0f, m_refs);
     square(vec);
     float s = sum(vec);
-    print(vec); Serial.println("");
-    print(m_refs); Serial.println("");
+    print(m_refs); if (Serial) Serial.println("");
+    print(vec); if (Serial) Serial.println("");
     if (Serial) {
       if (s > threshold2) {
         Serial.print("     sum= ");
@@ -67,6 +68,7 @@ public:
   virtual void reset() {
     zeros(m_refs);
     float samples[SETUP_NUM_SAMPLES][3];
+    readAccX(); delay(50);
     for (int i=0; i<SETUP_NUM_SAMPLES; ++i) {
       readData(samples[i]);
       axpy(m_refs, 1.0f, samples[i]);
@@ -93,7 +95,7 @@ public:
   }
 
   long readAccZ() const {
-    static const long min=-14, max=27;
+    static const long min=-13, max=28;
     return map(AccelerometerUtils::convertToG(analogRead(pins[2])), min, max, -100, 100);
   }
   
@@ -102,31 +104,38 @@ private:
   float m_refs[3];
   float threshold2;
   static const int SETUP_NUM_SAMPLES=30;
-  static const unsigned long SETUP_SAMPLE_DELAY=10;
+  static const unsigned long SETUP_SAMPLE_DELAY=5;
   
   template<typename T>
   void print(const T *vec) {
-    for (int i=0; i<3; ++i) {
-      Serial.print(vec[i]);
-      Serial.print(" ");
+    if (Serial) {
+      for (int i=0; i<3; ++i) {
+        Serial.print(vec[i]);
+        Serial.print(" ");
+      }
     }
   }
   
   template<typename T>
   void println(const T *vec) {
-    for (int i=0; i<3; ++i) {
-      Serial.print(vec[i]);
-      Serial.print(" ");
+    if (Serial) {
+      for (int i=0; i<3; ++i) {
+        Serial.print(vec[i]);
+        Serial.print(" ");
+      }
+      Serial.println("");
     }
-    Serial.println("");
   }
 
   void readData(float *vec) {
+    readAccX();
     vec[0] = readAccX();
+    readAccY();
     vec[1] = readAccY();
+    readAccZ();
     vec[2] = readAccZ();
   }
-
+  
   void zeros(float *vec) {
     for (int j=0; j<3; ++j) vec[j] = 0.0f;
   }
