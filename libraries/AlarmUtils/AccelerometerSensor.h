@@ -51,6 +51,10 @@ public:
     float vec[3];
     readData(vec);
     print(vec); if (Serial) Serial.println("");
+    scal(data, GAMMA);
+    axpy(data, 1.0f - GAMMA, vec);
+    copy(vec, data);
+    print(vec); if (Serial) Serial.println("");
     axpy(vec, -1.0f, m_refs);
     square(vec);
     float s = sum(vec);
@@ -68,14 +72,13 @@ public:
   virtual void reset() {
     zeros(m_refs);
     float samples[SETUP_NUM_SAMPLES][3];
-    readAccX(); delay(50);
     for (int i=0; i<SETUP_NUM_SAMPLES; ++i) {
       readData(samples[i]);
       axpy(m_refs, 1.0f, samples[i]);
       delay(SETUP_SAMPLE_DELAY);
     }
     scal(m_refs, 1.0f/SETUP_NUM_SAMPLES);
-    
+    copy(data, m_refs);
     if (Serial) {
       Serial.print("ACC Reference: mu=    ");
       println(m_refs);
@@ -101,10 +104,11 @@ public:
   
 private:
   int pins[3];
-  float m_refs[3];
+  float m_refs[3], data[3];
   float threshold2;
   static const int SETUP_NUM_SAMPLES=30;
-  static const unsigned long SETUP_SAMPLE_DELAY=5;
+  static const unsigned long SETUP_SAMPLE_DELAY=50;
+  static const float GAMMA = 0.80f;
   
   template<typename T>
   void print(const T *vec) {
@@ -128,11 +132,8 @@ private:
   }
 
   void readData(float *vec) {
-    readAccX();
     vec[0] = readAccX();
-    readAccY();
     vec[1] = readAccY();
-    readAccZ();
     vec[2] = readAccZ();
   }
   
