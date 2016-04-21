@@ -3,4 +3,4 @@
 	url = https://github.com/rocketscream/Low-Power.git
 [submodule "libraries/jeelib"]
 	path = libraries/jeelib
-	url = https://github.com/jcw/jeelib.git
+	url = https://github.com/pakozm/jeelib.git
