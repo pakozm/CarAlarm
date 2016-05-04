@@ -112,8 +112,7 @@ unsigned long millis_last_rf_packet = 0;
 
 unsigned long elapsedTime(unsigned long t0) {
   unsigned long t = millis();
-  if (t < t0) return (0xFFFFFFFF - t0) + t;
-  else return t - t0;
+  return t - t0;
 }
 
 void lowPowerMode() {

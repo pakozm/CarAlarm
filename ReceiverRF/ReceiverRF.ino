@@ -109,8 +109,7 @@ byte key[KEY_SIZE];
 
 unsigned long elapsedTime(unsigned long t0) {
   unsigned long t = millis();
-  if (t < t0) return (0xFFFFFFFF - t0) + t;
-  else return t - t0;
+  return t - t0;
 }
 
 bool check_count_code(uint32_t tx_count) {
