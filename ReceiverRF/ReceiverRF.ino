@@ -73,7 +73,7 @@ extern "C" {
 #include <RFUtils.h>
 #include <VirtualWireCPP.h>
 
-#define AUTO_POWER_OFF
+// #define AUTO_POWER_OFF
 
 typedef RFUtils::message_t message_t;
 
