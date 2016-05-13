@@ -157,7 +157,7 @@ void pair() {
   send_command(RFUtils::KEY_COMMAND, key, KEY_SIZE);
   count = 0;
   eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
-  eeprom_write_block(key, EEPROM_ADDR + sizeof(count), sizeof(key));
+  eeprom_write_block(key, (void*)EEPROM_ADDR + sizeof(count), sizeof(key));
   eeprom_busy_wait();
   blink(2000);
 }
@@ -187,7 +187,7 @@ void setup() {
   if (active_pair_button()) pairing_mode = true;
   
   count = eeprom_read_dword((uint32_t*)EEPROM_ADDR);
-  eeprom_read_block(key, EEPROM_ADDR + sizeof(count), sizeof(key));
+  eeprom_read_block(key, (void*)EEPROM_ADDR + sizeof(count), sizeof(key));
 }
 
 void loop() {

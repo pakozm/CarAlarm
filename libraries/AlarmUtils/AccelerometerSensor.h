@@ -27,6 +27,8 @@
 #include "AlarmSensor.h"
 #include "AccelerometerUtils.h"
 
+#define GAMMA 0.85f
+
 class AccelerometerSensor : public AlarmSensor {
 public:
   AccelerometerSensor(int x_pin, int y_pin, int z_pin, float threshold) :
@@ -106,9 +108,8 @@ private:
   int pins[3];
   float m_refs[3], data[3];
   float threshold2;
-  static const int SETUP_NUM_SAMPLES=30;
-  static const unsigned long SETUP_SAMPLE_DELAY=50;
-  static const float GAMMA = 0.80f;
+  static const int SETUP_NUM_SAMPLES=5;
+  static const unsigned long SETUP_SAMPLE_DELAY=200;
   
   template<typename T>
   void print(const T *vec) {
@@ -169,6 +170,8 @@ private:
     }
   }
 };
+
+#undef GAMMA
 
 #endif // ACC_SENSOR_H
 

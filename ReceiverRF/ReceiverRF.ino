@@ -151,7 +151,7 @@ void pair() {
         if (nbytes == BLOCK_SIZE) {
           count = 0;
           eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
-          eeprom_write_block(key, EEPROM_ADDR + sizeof(count), sizeof(key));
+          eeprom_write_block(key, (void*)EEPROM_ADDR + sizeof(count), sizeof(key));
           eeprom_busy_wait();
           blink();
           blink(2000);
@@ -170,7 +170,7 @@ void pair() {
   delay(50);
   eeprom_busy_wait();
   count = eeprom_read_dword((uint32_t*)EEPROM_ADDR);
-  eeprom_read_block(key, EEPROM_ADDR + sizeof(count), sizeof(key));
+  eeprom_read_block(key, (void*)EEPROM_ADDR + sizeof(count), sizeof(key));
 }
 
 void rf_check() {
@@ -210,7 +210,7 @@ void setup() {
   delay(50);
   eeprom_busy_wait();
   count = eeprom_read_dword((uint32_t*)EEPROM_ADDR);
-  eeprom_read_block(key, EEPROM_ADDR + sizeof(count), sizeof(key));
+  eeprom_read_block(key, (void*)EEPROM_ADDR + sizeof(count), sizeof(key));
   
   // put your setup code here, to run once:
   adc_disable();
