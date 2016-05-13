@@ -83,6 +83,8 @@ extern "C" {
 #include <JeeLib.h>
 #include <RFUtils.h>
 
+// #define AUTO_POWER_OFF
+
 ISR(WDT_vect) {
   Sleepy::watchdogEvent();
 }
@@ -297,9 +299,11 @@ void loop() {
     if (Serial) Serial.println("ALL_IDLE");
     sleep(ALL_IDLE_SLEEP_LENGTH);
   }
+#ifdef AUTO_POWER_OFF
   if (elapsedTime(millis_last_rf_packet) > RFUtils::MAX_TIME_WO_RF) {
+    if (Serial) Serial.println("SHUTDOWN");
     scheduler.clear();
     shutdown();
   }
+#endif
 }
-

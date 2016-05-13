@@ -66,7 +66,6 @@ extern "C" {
 #include <aes.h>
 }
 #include <avr/sleep.h>
-#include <EEPROM.h>
 #include <avr/eeprom.h>
 #include <CMACGenerator.h>
 #include <RFUtils.h>
@@ -158,7 +157,8 @@ void pair() {
   send_command(RFUtils::KEY_COMMAND, key, KEY_SIZE);
   count = 0;
   eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
-  for (int i = 0; i < KEY_SIZE; ++i) EEPROM.write(i + EEPROM_ADDR + sizeof(count), key[i]);
+  eeprom_write_block(key, EEPROM_ADDR + sizeof(count), sizeof(key));
+  eeprom_busy_wait();
   blink(2000);
 }
 
@@ -185,11 +185,9 @@ void setup() {
   tx.begin();
   
   if (active_pair_button()) pairing_mode = true;
-
+  
   count = eeprom_read_dword((uint32_t*)EEPROM_ADDR);
-  for (int i = 0; i < KEY_SIZE; ++i) {
-    key[i] = EEPROM.read(i + EEPROM_ADDR + sizeof(count));
-  }
+  eeprom_read_block(key, EEPROM_ADDR + sizeof(count), sizeof(key));
 }
 
 void loop() {
@@ -197,14 +195,14 @@ void loop() {
     pair();
   }
   else {
+    ++count;
+    eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
     blink(50,50);
     unsigned long t0 = millis();
     while(millis() - t0 < TX_REPLAY_TIME) {
       send_command(RFUtils::SWITCH_COMMAND);
       delay(TX_REPLAY_DELAY);
     }
-    ++count;
-    eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
     //blink(50,50);
   }
   shutdown();

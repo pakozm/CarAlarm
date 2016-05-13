@@ -68,11 +68,12 @@ extern "C" {
 }
 #include <avr/sleep.h>
 #include <avr/power.h>
-#include <EEPROM.h>
 #include <avr/eeprom.h>
 #include <CMACGenerator.h>
 #include <RFUtils.h>
 #include <VirtualWireCPP.h>
+
+#define AUTO_POWER_OFF
 
 typedef RFUtils::message_t message_t;
 
@@ -80,7 +81,6 @@ const int BLOCK_SIZE = RFUtils::MESSAGE_SIZE;
 const int MAC_SIZE = RFUtils::MAC_SIZE;
 const int KEY_SIZE = RFUtils::KEY_SIZE;
 
-const uint32_t COUNT_MAX = 0xFFFFFFFF;
 const uint32_t MAX_COUNT_DIFF = 256;
 const int EEPROM_ADDR  = 0;
 
@@ -113,8 +113,7 @@ unsigned long elapsedTime(unsigned long t0) {
 }
 
 bool check_count_code(uint32_t tx_count) {
-  uint32_t diff;
-  diff = (tx_count<count) ? (COUNT_MAX-count)+tx_count : tx_count-count;
+  uint32_t diff = tx_count - count;
   return diff < MAX_COUNT_DIFF;
 }
 
@@ -148,17 +147,17 @@ void pair() {
       blink();
       rx.await(60000);
       if (rx.available()) {
-        int8_t nbytes = rx.recv((void*)buf_msg.buffer, BLOCK_SIZE);
+        int8_t nbytes = rx.recv((void*)key, BLOCK_SIZE);
         if (nbytes == BLOCK_SIZE) {
           count = 0;
           eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
-          for (int i = 0; i < KEY_SIZE; ++i) {
-            EEPROM.write(i + EEPROM_ADDR + sizeof(count), buf_msg.buffer[i]);
-            blink();
-          }
-          blink(1000);
+          eeprom_write_block(key, EEPROM_ADDR + sizeof(count), sizeof(key));
+          eeprom_busy_wait();
+          blink();
+          blink(2000);
           return;
         }
+
       }
     }
   }
@@ -167,6 +166,11 @@ void pair() {
   blink(50,200);
   blink(50,200);
   blink(50,200);
+  // reload count and key values from EEPROM
+  delay(50);
+  eeprom_busy_wait();
+  count = eeprom_read_dword((uint32_t*)EEPROM_ADDR);
+  eeprom_read_block(key, EEPROM_ADDR + sizeof(count), sizeof(key));
 }
 
 void rf_check() {
@@ -175,17 +179,17 @@ void rf_check() {
     int8_t nbytes = rx.recv((void*)buf_msg.buffer, BLOCK_SIZE);
     if (nbytes == BLOCK_SIZE &&
         buf_msg.msg.cmd == RFUtils::SWITCH_COMMAND) {
+      blink();
       uint32_t tx_count = buf_msg.msg.count;
       uint32_t rx_mac = buf_msg.msg.MAC;
-      if (check_count_code(tx_count) &&
-          check_mac(rx_mac)) {
+      if (check_count_code(tx_count) && check_mac(rx_mac)) {
         blink();
         count = tx_count + 1; // keep track of the next count
         eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
         commandAndACK();
         millis_last_rf_packet = millis();
       }
-      delay(500);
+      delay(50);
     }
   }
 }
@@ -203,6 +207,11 @@ void shutdown() {
 }
 
 void setup() {
+  delay(50);
+  eeprom_busy_wait();
+  count = eeprom_read_dword((uint32_t*)EEPROM_ADDR);
+  eeprom_read_block(key, EEPROM_ADDR + sizeof(count), sizeof(key));
+  
   // put your setup code here, to run once:
   adc_disable();
   power_usi_disable();
@@ -219,26 +228,22 @@ void setup() {
   blink();
   delay(10000);
 
-  VirtualWire::begin(RFUtils::BAUD_RATE);
-  rx.begin();
-
   digitalWrite(CMD_PIN, LOW);
   while (digitalRead(ACK_PIN) == HIGH);
   blink();
   delay(100);
+
+  VirtualWire::begin(RFUtils::BAUD_RATE);
+  rx.begin();  
   if (digitalRead(ACK_PIN) == HIGH) {
     pair();
     commandAndACK();
-  }
-
-  count = eeprom_read_dword((uint32_t*)EEPROM_ADDR);
-  for (int i = 0; i < KEY_SIZE; ++i) {
-    key[i] = EEPROM.read(i + EEPROM_ADDR + sizeof(count));
   }
 }
 
 void loop() {
   rf_check();
+#ifdef AUTO_POWER_OFF
   if (elapsedTime(millis_last_rf_packet) > RFUtils::MAX_TIME_WO_RF) shutdown();
+#endif
 }
-

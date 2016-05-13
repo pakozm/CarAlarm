@@ -28,7 +28,7 @@ class RFUtils {
 public:
   const static int  KEY_SIZE       = 16;
   const static int  MAC_SIZE       = 4;
-  const static int  MESSAGE_SIZE   = 16;
+  const static int  MESSAGE_SIZE   = KEY_SIZE;
   const static int  PADDING_SIZE   = 7;  // 7 padding bytes for 16 bytes message length
   const static byte SWITCH_COMMAND = 0x01;
   const static byte KEY_COMMAND    = 0x20;
