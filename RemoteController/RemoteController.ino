@@ -156,9 +156,11 @@ void pair() {
   }
   send_command(RFUtils::KEY_COMMAND, key, KEY_SIZE);
   count = 0;
+  cli();
   eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
   eeprom_write_block(key, (void*)EEPROM_ADDR + sizeof(count), sizeof(key));
   eeprom_busy_wait();
+  sei();
   blink(2000);
 }
 
@@ -196,7 +198,10 @@ void loop() {
   }
   else {
     ++count;
+    cli();
     eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
+    eeprom_busy_wait();
+    sei();
     blink(50,50);
     unsigned long t0 = millis();
     while(millis() - t0 < TX_REPLAY_TIME) {

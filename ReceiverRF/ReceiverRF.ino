@@ -150,9 +150,11 @@ void pair() {
         int8_t nbytes = rx.recv((void*)key, BLOCK_SIZE);
         if (nbytes == BLOCK_SIZE) {
           count = 0;
+          cli();
           eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
           eeprom_write_block(key, (void*)EEPROM_ADDR + sizeof(count), sizeof(key));
           eeprom_busy_wait();
+          sei();
           blink();
           blink(2000);
           return;
@@ -185,7 +187,10 @@ void rf_check() {
       if (check_count_code(tx_count) && check_mac(rx_mac)) {
         blink();
         count = tx_count + 1; // keep track of the next count
+        cli();
         eeprom_write_dword((uint32_t*)EEPROM_ADDR, count);
+        eeprom_busy_wait();
+        sei();
         commandAndACK();
         millis_last_rf_packet = millis();
       }
